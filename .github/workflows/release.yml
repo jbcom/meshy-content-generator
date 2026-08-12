@@ -2,9 +2,16 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish or retry
+        required: true
+        type: string
 permissions: {}
 jobs:
   release-please:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -20,19 +27,19 @@ jobs:
           manifest-file: .release-please-manifest.json
   publish:
     needs: release-please
-    if: needs.release-please.outputs.release-created == 'true'
+    if: always() && (needs.release-please.outputs.release-created == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    environment: pypi
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release-please.outputs.tag-name }}
+          ref: ${{ inputs.tag || needs.release-please.outputs.tag-name }}
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: "0.11.19"
       - run: uv build
       - run: uv publish --trusted-publishing always
-
