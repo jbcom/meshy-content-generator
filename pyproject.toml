@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "meshy-content-generator"
+version = "0.1.2"
+description = "Declarative Meshy image generation and ImageMagick pipelines"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Jon Bogaty", email = "jon@jonbogaty.com" }]
+dependencies = ["vendor-fabric[meshy]>=2.1.5,<3"]
+
+[project.urls]
+Source = "https://github.com/jbcom/meshy-content-generator"
+Issues = "https://github.com/jbcom/meshy-content-generator/issues"
+
+[project.scripts]
+content-gen = "meshy_content_generator.cli:main"
+
+[project.optional-dependencies]
+dev = ["mypy>=1.20", "pytest>=9", "pytest-cov>=7", "ruff>=0.16"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/meshy_content_generator"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["COM812", "CPY001", "C901", "D203", "D213", "EM", "PLC0415", "S", "T201", "TC003", "TRY003", "TRY301"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "D", "INP001", "PLR2004", "S"]
+
+[tool.mypy]
+strict = true
