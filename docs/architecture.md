@@ -25,7 +25,6 @@ simple `when` map, such as `{ "layer": ["mid", "near"] }`.
 
 ## Release order
 
-The first standalone feature release declares `vendor-fabric>=2.1.5,<3` so it
-can be developed against the current line, but text-to-image is operational
-only with the next vendor-fabric feature release. Publish vendor-fabric first,
-then this package, then pin consumers to the released generator version.
+The first standalone feature release depends on `vendor-fabric>=2.2.0,<3`, the
+release that adds text-to-image. Publish vendor-fabric first, then this package,
+then pin consumers to the released generator version.

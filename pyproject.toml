@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Jon Bogaty", email = "jon@jonbogaty.com" }]
-dependencies = ["vendor-fabric[meshy]>=2.1.5,<3"]
+dependencies = ["vendor-fabric[meshy]>=2.2.0,<3"]
 
 [project.urls]
 Source = "https://github.com/jbcom/meshy-content-generator"
