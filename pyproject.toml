@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "meshy-content-generator"
-version = "0.1.2"
+version = "0.2.0"
 description = "Declarative Meshy image generation and ImageMagick pipelines"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 license = { text = "MIT" }
 authors = [{ name = "Jon Bogaty", email = "jon@jonbogaty.com" }]
 dependencies = ["vendor-fabric[meshy]>=2.2.0,<3"]
