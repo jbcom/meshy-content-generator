@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from meshy_content_generator.cli import main
-from meshy_content_generator.pipeline import VendorFabricProvider, load_pipeline
+from meshy_content_generator.pipeline import Operation, VendorFabricProvider, _process, load_pipeline
 
 
 def write_pipeline(root: Path, *, postprocess: list[dict[str, object]] | None = None) -> Path:
@@ -109,6 +109,124 @@ def test_fixture_mode_processes_without_provider(tmp_path: Path) -> None:
     assert len(outputs) == 2
     assert all(output.suffix == ".webp" and output.exists() for output in outputs)
     assert not any((tmp_path / "out").glob("*.png"))
+
+
+def test_dynamic_nested_template_key_selects_depth_prompt(tmp_path: Path) -> None:
+    source = tmp_path / "prompts.json"
+    source.write_text(
+        json.dumps(
+            {
+                "coverage": {"far": "full", "near": "edge-only"},
+                "records": [{"id": "scene", "far": "sky", "near": "branches"}],
+            }
+        )
+    )
+    manifest = json.loads(write_pipeline(tmp_path).read_text())
+    manifest["source"] = "prompts.json"
+    manifest["records"] = "records"
+    manifest["matrix"] = {"layer": ["far", "near"]}
+    manifest["generation"]["id"] = "{id}-{layer}"
+    manifest["generation"]["prompt"] = "{coverage.[layer]} {[layer]}"
+    manifest["generation"]["model"] = "model"
+    manifest["generation"]["aspect_ratio"] = "1:1"
+    manifest["generation"]["output"] = "out/{id}-{layer}.png"
+    manifest["generation"]["final_output"] = "out/{id}-{layer}.webp"
+    path = tmp_path / "pipeline.json"
+    path.write_text(json.dumps(manifest))
+
+    pipeline = load_pipeline(path, root=tmp_path)
+    assert [item.prompt for item in pipeline.items] == ["full sky", "edge-only branches"]
+
+
+def test_feather_multiplies_existing_alpha_instead_of_restoring_it(tmp_path: Path) -> None:
+    if not __import__("shutil").which("magick"):
+        pytest.skip("ImageMagick unavailable")
+    image = tmp_path / "alpha.webp"
+    subprocess.run(
+        [
+            "magick",
+            "-size",
+            "40x20",
+            "xc:none",
+            "-fill",
+            "white",
+            "-draw",
+            "rectangle 0,0 15,19 rectangle 24,0 39,19",
+            "-define",
+            "webp:lossless=true",
+            str(image),
+        ],
+        check=True,
+    )
+    _process(
+        image,
+        Operation("feather_edges", {"percent": 10, "quality": 100, "alpha_quality": 100}, {}),
+    )
+    centre_alpha = subprocess.run(
+        ["magick", str(image), "-format", "%[fx:p{20,10}.a]", "info:"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert float(centre_alpha) < 0.05
+
+
+def test_strip_mat_and_depth_masks_are_deterministic(tmp_path: Path) -> None:
+    if not __import__("shutil").which("magick"):
+        pytest.skip("ImageMagick unavailable")
+    image = tmp_path / "scene.webp"
+    subprocess.run(
+        [
+            "magick",
+            "-size",
+            "60x40",
+            "xc:gray70",
+            "-fill",
+            "black",
+            "-draw",
+            "rectangle 20,0 39,39",
+            "-fill",
+            "white",
+            "-draw",
+            "circle 30,20 34,20",
+            str(image),
+        ],
+        check=True,
+    )
+    _process(image, Operation("strip_painted_mat", {"flat_sd": 12, "step": 4, "soften": 1}, {}))
+    margin_alpha = subprocess.run(
+        ["magick", str(image), "-format", "%[fx:p{4,20}.a]", "info:"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert float(margin_alpha) < 0.05
+
+    _process(image, Operation("parallax_depth", {"depth": "near"}, {}))
+    alpha = subprocess.run(
+        ["magick", str(image), "-format", "%[fx:p{30,20}.a],%[fx:p{39,20}.a]", "info:"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    centre, edge = (float(value) for value in alpha.split(","))
+    assert centre < edge
+
+
+def test_parallax_depth_rejects_unknown_depth_before_processing(tmp_path: Path) -> None:
+    image = tmp_path / "scene.webp"
+    image.write_bytes(b"not processed")
+    with pytest.raises(ValueError, match="depth must be 'mid' or 'near'"):
+        _process(image, Operation("parallax_depth", {"depth": "far"}, {}))
+
+
+def test_strip_painted_mat_rejects_non_positive_scan_step(tmp_path: Path) -> None:
+    if not __import__("shutil").which("magick"):
+        pytest.skip("ImageMagick unavailable")
+    image = tmp_path / "scene.webp"
+    subprocess.run(["magick", "-size", "40x40", "xc:white", str(image)], check=True)
+    with pytest.raises(ValueError, match="step must be positive"):
+        _process(image, Operation("strip_painted_mat", {"step": 0}, {}))
 
 
 def test_unknown_id_and_operation_fail_closed(tmp_path: Path) -> None:

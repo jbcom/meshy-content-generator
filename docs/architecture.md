@@ -18,10 +18,19 @@ reading `MESHY_API_KEY`, touching outputs, or invoking ImageMagick.
 Each pipeline names a source JSON document, a record array, optional matrix
 dimensions, generation templates, and post-processing operations. Templates
 may read record or source-root fields (`{id}`, `{_style.model}`), matrix values
-(`{layer}`), uppercase values (`{layer|upper}`), and a record field selected by
-a matrix value (`{[layer]}`). Supported operations are `transparent`, `trim`,
-`square`, `webp`, and `feather_edges`. Operations can be restricted with a
-simple `when` map, such as `{ "layer": ["mid", "near"] }`.
+(`{layer}`), uppercase values (`{layer|upper}`), and a field selected by a
+matrix value either at the root (`{[layer]}`) or below a nested object
+(`{_style.coverage.[layer]}`). Supported operations are `transparent`, `trim`,
+`square`, `webp`, `feather_edges`, `strip_painted_mat`, and
+`parallax_depth`. Operations can be restricted with a simple `when` map, such
+as `{ "layer": ["mid", "near"] }`.
+
+`feather_edges`, `strip_painted_mat`, and `parallax_depth` multiply their masks
+with the image's existing alpha. They cannot make a keyed transparent pixel
+opaque again. `strip_painted_mat` detects full-height, low-variance edge bands
+geometrically so shared highlight colours inside the artwork are preserved.
+`parallax_depth` requires `depth` to be `mid` or `near`; use separate `when`
+entries when a matrix expands both depths.
 
 ## Release order
 

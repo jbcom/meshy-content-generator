@@ -141,9 +141,15 @@ def _lookup(context: dict[str, object], expression: str) -> object:
         return context[dynamic]
     current: object = context
     for part in expression.split("."):
-        if not isinstance(current, dict) or part not in current:
+        key = part
+        if key.startswith("[") and key.endswith("]"):
+            dynamic = context.get(key[1:-1])
+            if not isinstance(dynamic, str):
+                raise ValueError(f"Dynamic template key {key} did not resolve to text")
+            key = dynamic
+        if not isinstance(current, dict) or key not in current:
             raise ValueError(f"Template value {{{expression}}} is missing")
-        current = current[part]
+        current = current[key]
     return current
 
 
@@ -230,6 +236,112 @@ def _magick(*arguments: str) -> None:
     subprocess.run(["magick", *arguments], check=True)
 
 
+def _identify(path: Path, expression: str) -> int:
+    return int(
+        subprocess.run(
+            ["magick", "identify", "-format", expression, str(path)],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    )
+
+
+def _multiply_alpha(path: Path, mask_arguments: list[str], *, quality: int = 88, alpha_quality: int = 95) -> None:
+    temporary = path.with_name(f"{path.stem}.tmp{path.suffix}")
+    _magick(
+        str(path),
+        "(",
+        "-clone",
+        "0",
+        "-alpha",
+        "extract",
+        ")",
+        "(",
+        *mask_arguments,
+        ")",
+        "(",
+        "-clone",
+        "1",
+        "-clone",
+        "2",
+        "-compose",
+        "multiply",
+        "-composite",
+        ")",
+        "-delete",
+        "1,2",
+        "-alpha",
+        "off",
+        "-compose",
+        "CopyOpacity",
+        "-composite",
+        "-quality",
+        str(quality),
+        "-define",
+        f"webp:alpha-quality={alpha_quality}",
+        str(temporary),
+    )
+    temporary.replace(path)
+
+
+def _strip_painted_mat(path: Path, options: dict[str, object]) -> None:
+    width = _identify(path, "%w")
+    height = _identify(path, "%h")
+    top = height * 20 // 100
+    span = height * 60 // 100
+    step = int(str(options.get("step", 4)))
+    threshold = int(str(options.get("flat_sd", 12)))
+    if step <= 0:
+        raise ValueError("strip_painted_mat step must be positive")
+
+    def column_sd(left: int) -> int:
+        return int(
+            subprocess.run(
+                [
+                    "magick",
+                    str(path),
+                    "-crop",
+                    f"{step}x{span}+{left}+{top}",
+                    "+repage",
+                    "-colorspace",
+                    "Gray",
+                    "-format",
+                    "%[fx:round(1000*standard_deviation)]",
+                    "info:",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        )
+
+    left = 0
+    while left < width // 3 and column_sd(left) <= threshold:
+        left += step
+    right = width - step
+    while right > width * 2 // 3 and column_sd(right) <= threshold:
+        right -= step
+    if left <= step and right >= width - 2 * step:
+        return
+
+    soften = int(str(options.get("soften", 3)))
+    _multiply_alpha(
+        path,
+        [
+            "-size",
+            f"{width}x{height}",
+            "xc:black",
+            "-fill",
+            "white",
+            "-draw",
+            f"rectangle {left},0 {right},{height}",
+            "-blur",
+            f"0x{soften}",
+        ],
+    )
+
+
 def _process(path: Path, operation: Operation) -> Path:
     options = operation.options
     if operation.name == "transparent":
@@ -282,44 +394,39 @@ def _process(path: Path, operation: Operation) -> Path:
             path.unlink()
         return destination
     elif operation.name == "feather_edges":
-        width = int(
-            subprocess.run(
-                ["magick", "identify", "-format", "%w", str(path)], check=True, capture_output=True, text=True
-            ).stdout
-        )
-        height = int(
-            subprocess.run(
-                ["magick", "identify", "-format", "%h", str(path)], check=True, capture_output=True, text=True
-            ).stdout
-        )
+        width = _identify(path, "%w")
+        height = _identify(path, "%h")
         fade = max(width * int(str(options.get("percent", 7))) // 100, 6)
         inner = width - 2 * fade
-        temporary = path.with_suffix(".tmp.webp")
-        _magick(
-            str(path),
-            "(",
-            "-size",
-            f"{width}x{height}",
-            "xc:black",
-            "-fill",
-            "white",
-            "-draw",
-            f"rectangle {fade},0 {fade + inner},{height}",
-            "-blur",
-            f"0x{fade // 2}",
-            ")",
-            "-alpha",
-            "off",
-            "-compose",
-            "CopyOpacity",
-            "-composite",
-            "-quality",
-            str(options["quality"]),
-            "-define",
-            f"webp:alpha-quality={options['alpha_quality']}",
-            str(temporary),
+        _multiply_alpha(
+            path,
+            [
+                "-size",
+                f"{width}x{height}",
+                "xc:black",
+                "-fill",
+                "white",
+                "-draw",
+                f"rectangle {fade},0 {fade + inner},{height}",
+                "-blur",
+                f"0x{fade // 2}",
+            ],
+            quality=int(str(options["quality"])),
+            alpha_quality=int(str(options["alpha_quality"])),
         )
-        temporary.replace(path)
+    elif operation.name == "strip_painted_mat":
+        _strip_painted_mat(path, options)
+    elif operation.name == "parallax_depth":
+        depth = str(options["depth"])
+        gradients = {"mid": "gray30-gray95", "near": "black-gray85"}
+        if depth not in gradients:
+            raise ValueError("parallax_depth depth must be 'mid' or 'near'")
+        width = _identify(path, "%w")
+        height = _identify(path, "%h")
+        _multiply_alpha(
+            path,
+            ["-size", f"{width}x{height}", f"radial-gradient:{gradients[depth]}"],
+        )
     else:
         raise ValueError(f"Unknown postprocess operation: {operation.name}")
     return path
