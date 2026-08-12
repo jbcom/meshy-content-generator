@@ -70,6 +70,7 @@ class Pipeline:
         ids: set[str] | None = None,
         provider: ImageProvider | None = None,
         fixture_image: Path | None = None,
+        force: bool = False,
     ) -> list[Path]:
         """Generate and process selected items, or copy a fixture without network access."""
         if provider is None and fixture_image is None:
@@ -78,7 +79,7 @@ class Pipeline:
         failures: list[Exception] = []
         for item in self.select(ids):
             try:
-                if item.final_output.exists():
+                if item.final_output.exists() and not force:
                     outputs.append(item.final_output)
                     continue
                 item.raw_output.parent.mkdir(parents=True, exist_ok=True)

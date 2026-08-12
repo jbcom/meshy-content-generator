@@ -20,6 +20,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--root", type=Path, default=Path.cwd())
     run.add_argument("--dry-run", action="store_true")
     run.add_argument("--fixture-image", type=Path)
+    run.add_argument("--force", action="store_true")
     return command
 
 
@@ -42,7 +43,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ]
         print(json.dumps({"pipeline": pipeline.name, "items": plan}, indent=2))
         return 0
-    outputs = pipeline.run(ids=ids, fixture_image=arguments.fixture_image)
+    outputs = pipeline.run(ids=ids, fixture_image=arguments.fixture_image, force=arguments.force)
     for output in outputs:
         print(output)
     return 0

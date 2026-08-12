@@ -7,6 +7,7 @@ no Meshy HTTP client, credential handling, retry loop, poller, or downloader.
 ```bash
 uvx --from meshy-content-generator content-gen run tools/pipelines/ducks.json --root . --dry-run
 uvx --from meshy-content-generator content-gen run tools/pipelines/ducks.json --root . soot-sparrow
+uvx --from meshy-content-generator content-gen run tools/pipelines/backdrops.json --root . scene-near --force --fixture-image public/art/backdrops/scene-near.webp
 ```
 
 `--dry-run` validates and prints every resolved request without credentials,

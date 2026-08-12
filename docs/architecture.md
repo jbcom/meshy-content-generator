@@ -13,6 +13,12 @@ only orchestration and local deterministic transformations. `--dry-run`
 expands and validates the complete plan without importing the provider,
 reading `MESHY_API_KEY`, touching outputs, or invoking ImageMagick.
 
+Completed outputs are skipped by default. `--force` explicitly reruns a
+selected item. Combined with `--fixture-image`, it can reprocess an existing
+asset through a changed manifest without a provider import, network call, or
+credit spend; without a fixture, forcing an item whose raw input is absent
+requests a fresh generation.
+
 ## Pipeline schema
 
 Each pipeline names a source JSON document, a record array, optional matrix

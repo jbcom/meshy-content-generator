@@ -111,6 +111,42 @@ def test_fixture_mode_processes_without_provider(tmp_path: Path) -> None:
     assert not any((tmp_path / "out").glob("*.png"))
 
 
+def test_force_reprocesses_existing_output_from_fixture_without_provider(tmp_path: Path) -> None:
+    if not __import__("shutil").which("magick"):
+        pytest.skip("ImageMagick unavailable")
+    fixture = tmp_path / "fixture.webp"
+    subprocess.run(["magick", "-size", "8x4", "xc:black", str(fixture)], check=True)
+    pipeline_path = write_pipeline(
+        tmp_path,
+        postprocess=[{"op": "webp", "quality": 88, "alpha_quality": 95}],
+    )
+    existing = tmp_path / "out" / "duck-front.webp"
+    existing.parent.mkdir(parents=True)
+    subprocess.run(["magick", "-size", "2x2", "xc:white", str(existing)], check=True)
+
+    with patch("meshy_content_generator.pipeline.VendorFabricProvider") as provider:
+        assert main(
+            [
+                "run",
+                str(pipeline_path),
+                "--root",
+                str(tmp_path),
+                "duck-front",
+                "--force",
+                "--fixture-image",
+                str(fixture),
+            ]
+        ) == 0
+    provider.assert_not_called()
+    dimensions = subprocess.run(
+        ["magick", "identify", "-format", "%wx%h", str(existing)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert dimensions == "8x4"
+
+
 def test_dynamic_nested_template_key_selects_depth_prompt(tmp_path: Path) -> None:
     source = tmp_path / "prompts.json"
     source.write_text(
