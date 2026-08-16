@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.2.0...meshy-content-generator-v0.2.1) (2026-08-12)
+
+
+### Bug Fixes
+
+* make trusted publishing explicitly retryable ([#3](https://github.com/jbcom/meshy-content-generator/issues/3)) ([03c583f](https://github.com/jbcom/meshy-content-generator/commit/03c583fff5962ccacdedbdc7a9f560eeca057b2e))
+
 ## [0.2.0](https://github.com/jbcom/meshy-content-generator/releases/tag/meshy-content-generator-v0.2.0) (2026-08-12)
 
 ### Features
