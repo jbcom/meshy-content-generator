@@ -1,0 +1,28 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "meshy-content-generator",
+  "description": "Declarative Meshy image-generation pipeline expansion with deterministic ImageMagick post-processing.",
+  "branch": "main",
+  "folders": [
+    "docs"
+  ],
+  "excludeFolders": [
+    "docs/dist"
+  ],
+  "excludeFiles": [
+    "CHANGELOG.md"
+  ],
+  "rules": [
+    "Use --dry-run for credential-free, network-free plan validation.",
+    "This package owns pipeline expansion and deterministic local post-processing; vendor-fabric owns Meshy authentication, HTTP, retries, polling, downloads, and vendor error translation.",
+    "Use --fixture-image to exercise local post-processing without a paid generation request."
+  ],
+  "previousVersions": [
+    {
+      "tag": "meshy-content-generator-v0.3.1"
+    },
+    {
+      "tag": "meshy-content-generator-v0.2.1"
+    }
+  ]
+}
