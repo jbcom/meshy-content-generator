@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.2.1...meshy-content-generator-v0.3.0) (2026-08-24)
+
+
+### Features
+
+* establish secure agentic delivery ([32b8da6](https://github.com/jbcom/meshy-content-generator/commit/32b8da6a70e3a4738f0182f6267c24d13811f7e7))
+* establish secure agentic delivery ([77323b6](https://github.com/jbcom/meshy-content-generator/commit/77323b686488b131748c80282a4628a8929a0501))
+
+
+### Bug Fixes
+
+* **ci:** expose distinct protected gate names ([b20a84f](https://github.com/jbcom/meshy-content-generator/commit/b20a84f1baab801223e76d21e9abd8ef4e8c2b8f))
+* **ci:** initialize documentation toolchain before cache use ([3a796eb](https://github.com/jbcom/meshy-content-generator/commit/3a796eb6f52afa9bd5751799abcf4534f01d5e62))
+
+
+### Documentation
+
+* clarify security report details ([4a6df99](https://github.com/jbcom/meshy-content-generator/commit/4a6df997dd198cf38f36f71e28e22c94b07a7618))
+* document trusted delivery workflow ([26b7d87](https://github.com/jbcom/meshy-content-generator/commit/26b7d878f359ddbcae0c3a611e3ab35e27e05c5c))
+* validate repository policy gate ([8a68032](https://github.com/jbcom/meshy-content-generator/commit/8a68032aab5d5d4b9737a3516383bbfc517337ee))
+
 ## [0.2.1](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.2.0...meshy-content-generator-v0.2.1) (2026-08-12)
 
 
