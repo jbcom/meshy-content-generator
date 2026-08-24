@@ -28,9 +28,9 @@ pre-commit run --all-files
 Paid API tests are forbidden by default. Test pipelines through `--dry-run` or
 `--fixture-image` and mock `vendor-fabric` at the adapter boundary.
 
-Pull requests and `main` are also analyzed by SonarQube Cloud. The scanner
-reads its short-lived CI credential only in GitHub Actions; contributors do not
-need a token for local validation.
+Pull requests and `main` are also analyzed by SonarQube Cloud as part of the
+same CI workflow. Its organization-managed GitHub credential is unavailable to
+local contributors, who do not need a token for local validation.
 
 ## Change boundaries
 
