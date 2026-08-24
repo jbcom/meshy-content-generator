@@ -21,12 +21,11 @@ jobs:
     steps:
       - id: release
         env:
-          AUTHOR: ${{ github.event.pull_request.user.login }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          if [ "$HEAD_REPOSITORY" = "$REPOSITORY" ] && { [ "$AUTHOR" = 'release-please[bot]' ] || { [ "$AUTHOR" = 'app/github-actions' ] && [[ "$HEAD_REF" == release-please--branches--main--components--* ]]; }; }; then
+          if [ "$HEAD_REPOSITORY" = "$REPOSITORY" ] && [[ "$HEAD_REF" == release-please--branches--main--components--* ]]; then
             echo 'skip=true' >> "$GITHUB_OUTPUT"
           else
             echo 'skip=false' >> "$GITHUB_OUTPUT"
