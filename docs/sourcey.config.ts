@@ -28,7 +28,7 @@ export default defineConfig({
         slug: "",
         source: markdown({
           groups: [
-            { group: "Get started", pages: ["introduction", "quickstart"] },
+            { group: "Get started", pages: ["introduction", "quickstart", "library-usage"] },
             { group: "Reference", pages: ["pipeline-schema", "cli", "api-reference"] },
             { group: "Project", pages: ["architecture", "contributing", "security", "releases"] },
           ],

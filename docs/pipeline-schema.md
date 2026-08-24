@@ -39,6 +39,16 @@ validation rather than silently producing a bad prompt.
 `generation.max_prompt_length` may set a positive character limit. A plan whose
 rendered prompt exceeds it fails before provider work begins.
 
+## Output safety
+
+All source, raw-output, and final-output paths resolve inside `--root`; path
+traversal and symlink escapes fail validation. A pipeline may not overwrite its
+own manifest or source catalogue. Expanded raw outputs and final outputs must
+each be unique, and a raw output cannot be another asset's final output. This
+prevents one generated image from being reused accidentally for a different
+asset. A raw output may equal its own final output only when no conversion is
+needed.
+
 ## Post-processing operations
 
 Operations are executed in manifest order. `when` limits an operation to matrix
