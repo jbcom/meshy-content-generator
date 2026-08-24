@@ -1,4 +1,5 @@
 name: Release
+# External-fork policy validation marker: this PR must be rejected by the base policy.
 on:
   push:
     branches: [main]
