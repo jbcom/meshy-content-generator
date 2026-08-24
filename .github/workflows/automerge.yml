@@ -1,0 +1,77 @@
+name: Automerge vetted automation
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    name: Automerge / classify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      eligible: ${{ steps.decision.outputs.eligible }}
+    steps:
+      - id: release
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "$AUTHOR" = 'release-please[bot]' ]; then
+            echo 'eligible=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'eligible=false' >> "$GITHUB_OUTPUT"
+          fi
+      - id: dependabot
+        if: github.event.pull_request.user.login == 'dependabot[bot]'
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.CI_GITHUB_TOKEN }}
+      - id: decision
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          RELEASE_ELIGIBLE: ${{ steps.release.outputs.eligible }}
+          UPDATE_TYPE: ${{ steps.dependabot.outputs.update-type }}
+        run: |
+          if [ "$RELEASE_ELIGIBLE" = true ] || { [ "$AUTHOR" = 'dependabot[bot]' ] && [ -n "$UPDATE_TYPE" ] && [ "$UPDATE_TYPE" != 'version-update:semver-major' ]; }; then
+            echo 'eligible=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'eligible=false' >> "$GITHUB_OUTPUT"
+          fi
+  enable:
+    name: Automerge / enable
+    needs: classify
+    if: needs.classify.outputs.eligible == 'true' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.CI_GITHUB_TOKEN }}
+          script: |
+            const pull = context.payload.pull_request;
+            const expectedRepository = `${context.repo.owner}/${context.repo.repo}`;
+            if (pull.head.repo.full_name !== expectedRepository) {
+              core.setFailed(`Refusing to enable auto-merge for a fork: ${pull.head.repo.full_name}`);
+              return;
+            }
+            await github.graphql(`
+              mutation EnableAutoMerge($pullRequestId: ID!) {
+                enablePullRequestAutoMerge(input: {
+                  pullRequestId: $pullRequestId,
+                  mergeMethod: MERGE
+                }) {
+                  pullRequest { number autoMergeRequest { enabledAt } }
+                }
+              }
+            `, { pullRequestId: pull.node_id });
+            core.info(`Enabled merge-commit auto-merge for #${pull.number}.`);

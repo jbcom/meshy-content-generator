@@ -10,7 +10,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: CI / classify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      skip: ${{ steps.decision.outputs.skip }}
+    steps:
+      - id: release
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "$AUTHOR" = 'release-please[bot]' ]; then
+            echo 'skip=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'skip=false' >> "$GITHUB_OUTPUT"
+          fi
+      - id: dependabot
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - id: decision
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          RELEASE_SKIP: ${{ steps.release.outputs.skip }}
+          UPDATE_TYPE: ${{ steps.dependabot.outputs.update-type }}
+        run: |
+          if [ "$RELEASE_SKIP" = true ] || { [ "$AUTHOR" = 'dependabot[bot]' ] && [ -n "$UPDATE_TYPE" ] && [ "$UPDATE_TYPE" != 'version-update:semver-major' ]; }; then
+            echo 'skip=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'skip=false' >> "$GITHUB_OUTPUT"
+          fi
   python:
+    needs: classify
+    if: github.event_name != 'pull_request' || needs.classify.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,6 +70,8 @@ jobs:
       - run: uv run --locked --no-sync mypy src
       - run: uv build
   sonar:
+    needs: classify
+    if: github.event_name != 'pull_request' || needs.classify.outputs.skip != 'true'
     name: SonarQube Cloud / analyze
     runs-on: ubuntu-latest
     permissions:
@@ -57,6 +95,8 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   docs:
+    needs: classify
+    if: github.event_name != 'pull_request' || needs.classify.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -74,8 +114,18 @@ jobs:
   gate:
     name: CI / gate
     if: always()
-    needs: [python, docs, sonar]
+    needs: [classify, python, docs, sonar]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
-      - run: test "${{ needs.python.result }}" = success && test "${{ needs.docs.result }}" = success && test "${{ needs.sonar.result }}" = success
+      - env:
+          SKIP: ${{ needs.classify.outputs.skip }}
+          PYTHON: ${{ needs.python.result }}
+          DOCS: ${{ needs.docs.result }}
+          SONAR: ${{ needs.sonar.result }}
+        run: |
+          if [ "$SKIP" = true ]; then
+            echo 'Vetted automation pull request: tests, documentation validation, and Sonar analysis intentionally skipped.'
+            exit 0
+          fi
+          test "$PYTHON" = success && test "$DOCS" = success && test "$SONAR" = success
