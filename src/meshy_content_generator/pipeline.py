@@ -12,6 +12,15 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 TOKEN = re.compile(r"\{([^{}]+)\}")
+OPERATIONS = frozenset(
+    {"transparent", "trim", "square", "webp", "feather_edges", "strip_painted_mat", "parallax_depth"}
+)
+REQUIRED_OPTIONS = {
+    "transparent": frozenset({"fuzz"}),
+    "webp": frozenset({"quality", "alpha_quality"}),
+    "feather_edges": frozenset({"quality", "alpha_quality"}),
+    "parallax_depth": frozenset({"depth"}),
+}
 
 
 class ImageProvider(Protocol):
@@ -170,6 +179,14 @@ def _render(template: object, context: dict[str, object]) -> str:
     return TOKEN.sub(replace, template)
 
 
+def _within_root(root: Path, candidate: Path, label: str) -> Path:
+    """Resolve a manifest path and reject traversal outside the workspace root."""
+    resolved = candidate.resolve()
+    if not resolved.is_relative_to(root):
+        raise ValueError(f"{label} must stay within the pipeline root")
+    return resolved
+
+
 def load_pipeline(path: str | Path, *, root: str | Path | None = None) -> Pipeline:
     """Load and fully validate a pipeline and its prompt catalogue."""
     pipeline_path = Path(path).resolve()
@@ -177,16 +194,21 @@ def load_pipeline(path: str | Path, *, root: str | Path | None = None) -> Pipeli
     data = _object(json.loads(pipeline_path.read_text()), "pipeline")
     if data.get("schema_version") != 1:
         raise ValueError("schema_version must be 1")
-    source_path = (workspace / str(data["source"])).resolve()
+    source_path = _within_root(workspace, workspace / str(data["source"]), "source")
     source = _object(json.loads(source_path.read_text()), "source")
     record_keys = data["records"] if isinstance(data["records"], list) else [data["records"]]
     records = [record for key in record_keys for record in _sequence(source.get(str(key)), f"records.{key}")]
     generation = _object(data.get("generation"), "generation")
     max_prompt_length = int(str(generation.get("max_prompt_length", 0)))
+    if max_prompt_length < 0:
+        raise ValueError("generation.max_prompt_length must be zero or positive")
     matrix_raw = _object(data.get("matrix", {}), "matrix")
-    dimensions = [
-        [(name, value) for value in _sequence(values, f"matrix.{name}")] for name, values in matrix_raw.items()
-    ]
+    dimensions = []
+    for name, values in matrix_raw.items():
+        dimension = _sequence(values, f"matrix.{name}")
+        if not dimension:
+            raise ValueError(f"matrix.{name} must not be empty")
+        dimensions.append([(name, value) for value in dimension])
     combinations = itertools.product(*dimensions) if dimensions else [()]
     matrix_combinations = [dict(parts) for parts in combinations]
     items: list[PipelineItem] = []
@@ -194,7 +216,11 @@ def load_pipeline(path: str | Path, *, root: str | Path | None = None) -> Pipeli
         record = _object(raw_record, "record")
         for matrix in matrix_combinations:
             context: dict[str, object] = {**source, **record, **matrix}
-            raw_output = workspace / _render(generation["output"], context)
+            raw_output = _within_root(
+                workspace,
+                workspace / _render(generation["output"], context),
+                "generation.output",
+            )
             final_template = generation.get("final_output", generation["output"])
             prompt = _render(generation["prompt"], context)
             if max_prompt_length and len(prompt) > max_prompt_length:
@@ -208,11 +234,26 @@ def load_pipeline(path: str | Path, *, root: str | Path | None = None) -> Pipeli
                     model=_render(generation["model"], context),
                     aspect_ratio=_render(generation["aspect_ratio"], context),
                     raw_output=raw_output,
-                    final_output=workspace / _render(final_template, context),
+                    final_output=_within_root(
+                        workspace,
+                        workspace / _render(final_template, context),
+                        "generation.final_output",
+                    ),
                     variables=context,
                 )
             )
     operations = tuple(_parse_operation(raw) for raw in _sequence(data.get("postprocess", []), "postprocess"))
+    for operation in operations:
+        missing_when = set(operation.when).difference(items[0].variables if items else {})
+        if missing_when:
+            msg = f"Operation {operation.name} references unknown when variable(s): {', '.join(sorted(missing_when))}"
+            raise ValueError(msg)
+    asset_ids = [item.asset_id for item in items]
+    if len(asset_ids) != len(set(asset_ids)):
+        raise ValueError("Expanded pipeline contains duplicate asset IDs")
+    outputs = [item.final_output for item in items]
+    if len(outputs) != len(set(outputs)):
+        raise ValueError("Expanded pipeline contains duplicate final outputs")
     return Pipeline(
         name=str(data["name"]),
         root=workspace,
@@ -226,7 +267,15 @@ def _parse_operation(raw: object) -> Operation:
     data = _object(raw, "operation")
     when_raw = _object(data.get("when", {}), "operation.when")
     when = {key: tuple(str(value) for value in _sequence(values, f"when.{key}")) for key, values in when_raw.items()}
-    return Operation(str(data["op"]), {key: value for key, value in data.items() if key not in {"op", "when"}}, when)
+    name = str(data["op"])
+    if name not in OPERATIONS:
+        raise ValueError(f"Unknown postprocess operation: {name}")
+    options = {key: value for key, value in data.items() if key not in {"op", "when"}}
+    missing = REQUIRED_OPTIONS.get(name, frozenset()).difference(options)
+    if missing:
+        msg = f"Operation {name} is missing required option(s): {', '.join(sorted(missing))}"
+        raise ValueError(msg)
+    return Operation(name, options, when)
 
 
 def _matches(operation: Operation, variables: dict[str, object]) -> bool:
