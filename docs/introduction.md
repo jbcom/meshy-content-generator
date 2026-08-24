@@ -17,6 +17,7 @@ skip/force behavior, and local image transformations.
 <CardGroup cols={2}>
   <Card title="Quick start" icon="rocket" href="/quickstart/">Install and run a credit-free plan preview.</Card>
   <Card title="Pipeline schema" icon="code" href="/pipeline-schema/">Author records, matrices, templates, and post-processing.</Card>
+  <Card title="Library usage" icon="terminal" href="/library-usage/">Use the typed Python API or stable dry-run JSON in automation.</Card>
 </CardGroup>
 
 ## Safety model

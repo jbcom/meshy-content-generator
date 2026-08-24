@@ -44,3 +44,6 @@ absent.
 > Real generation is intentionally delegated to `vendor-fabric`. Configure its
 > supported provider authentication there; this package never implements a
 > second HTTP or credential layer.
+
+For an embedded Python workflow or an agent that needs to inspect a plan before
+acting, see [Library usage](/library-usage/).

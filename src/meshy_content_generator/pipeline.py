@@ -187,6 +187,24 @@ def _within_root(root: Path, candidate: Path, label: str) -> Path:
     return resolved
 
 
+def _validate_output_paths(items: list[PipelineItem], pipeline_path: Path, source_path: Path) -> None:
+    """Reject output aliases that could corrupt inputs or reuse another asset's image."""
+    raw_outputs = [item.raw_output for item in items]
+    outputs = [item.final_output for item in items]
+    protected_inputs = {pipeline_path, source_path}
+    if any(path in protected_inputs for path in [*raw_outputs, *outputs]):
+        raise ValueError("Generation outputs must not overwrite the pipeline manifest or source catalogue")
+    if len(raw_outputs) != len(set(raw_outputs)):
+        raise ValueError("Expanded pipeline contains duplicate raw outputs")
+    if len(outputs) != len(set(outputs)):
+        raise ValueError("Expanded pipeline contains duplicate final outputs")
+    raw_to_id = {item.raw_output: item.asset_id for item in items}
+    final_to_id = {item.final_output: item.asset_id for item in items}
+    collisions = set(raw_to_id).intersection(final_to_id)
+    if any(raw_to_id[path] != final_to_id[path] for path in collisions):
+        raise ValueError("Expanded pipeline raw and final outputs must not overlap across assets")
+
+
 def load_pipeline(path: str | Path, *, root: str | Path | None = None) -> Pipeline:
     """Load and fully validate a pipeline and its prompt catalogue."""
     pipeline_path = Path(path).resolve()
@@ -243,17 +261,16 @@ def load_pipeline(path: str | Path, *, root: str | Path | None = None) -> Pipeli
                 )
             )
     operations = tuple(_parse_operation(raw) for raw in _sequence(data.get("postprocess", []), "postprocess"))
+    known_variables = set().union(*(item.variables for item in items)) if items else set(source).union(matrix_raw)
     for operation in operations:
-        missing_when = set(operation.when).difference(items[0].variables if items else {})
+        missing_when = set(operation.when).difference(known_variables)
         if missing_when:
             msg = f"Operation {operation.name} references unknown when variable(s): {', '.join(sorted(missing_when))}"
             raise ValueError(msg)
     asset_ids = [item.asset_id for item in items]
     if len(asset_ids) != len(set(asset_ids)):
         raise ValueError("Expanded pipeline contains duplicate asset IDs")
-    outputs = [item.final_output for item in items]
-    if len(outputs) != len(set(outputs)):
-        raise ValueError("Expanded pipeline contains duplicate final outputs")
+    _validate_output_paths(items, pipeline_path, source_path)
     return Pipeline(
         name=str(data["name"]),
         root=workspace,

@@ -147,6 +147,31 @@ def test_force_reprocesses_existing_output_from_fixture_without_provider(tmp_pat
     assert dimensions == "8x4"
 
 
+def test_pipeline_skips_completed_final_outputs_without_calling_provider(tmp_path: Path) -> None:
+    pipeline = load_pipeline(write_pipeline(tmp_path), root=tmp_path)
+    completed = pipeline.items[0].final_output
+    completed.parent.mkdir(parents=True)
+    completed.write_bytes(b"already complete")
+    provider = MagicMock()
+
+    assert pipeline.run(ids={"duck-front"}, provider=provider) == [completed]
+    provider.generate.assert_not_called()
+
+
+def test_continue_on_error_attempts_remaining_items_and_reports_an_aggregate(tmp_path: Path) -> None:
+    manifest_path = write_pipeline(tmp_path)
+    manifest = json.loads(manifest_path.read_text())
+    manifest["continue_on_error"] = True
+    manifest_path.write_text(json.dumps(manifest))
+    pipeline = load_pipeline(manifest_path, root=tmp_path)
+    provider = MagicMock()
+    provider.generate.side_effect = RuntimeError("provider unavailable")
+
+    with pytest.raises(RuntimeError, match=r"2 pipeline item\(s\) failed; first error: provider unavailable"):
+        pipeline.run(provider=provider)
+    assert provider.generate.call_count == 2
+
+
 def test_dynamic_nested_template_key_selects_depth_prompt(tmp_path: Path) -> None:
     source = tmp_path / "prompts.json"
     source.write_text(
@@ -282,7 +307,7 @@ def test_pipeline_rejects_traversal_collisions_and_unknown_when_variables(tmp_pa
     with pytest.raises(ValueError, match=r"generation\.output must stay within"):
         load_pipeline(manifest_path, root=tmp_path)
 
-    manifest["generation"]["output"] = "out/{id}.png"
+    manifest["generation"]["output"] = "out/{id}-{view}.png"
     manifest["generation"]["final_output"] = "out/{id}.webp"
     manifest["postprocess"] = [{"op": "webp", "quality": 88, "alpha_quality": 95}]
     manifest_path.write_text(json.dumps(manifest))
@@ -299,6 +324,37 @@ def test_pipeline_rejects_traversal_collisions_and_unknown_when_variables(tmp_pa
     manifest["postprocess"] = [{"op": "webp", "quality": 88, "alpha_quality": 95, "when": {"typo": ["x"]}}]
     manifest_path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match="unknown when variable"):
+        load_pipeline(manifest_path, root=tmp_path)
+
+
+def test_pipeline_rejects_raw_output_and_input_collisions(tmp_path: Path) -> None:
+    manifest_path = write_pipeline(tmp_path)
+    manifest = json.loads(manifest_path.read_text())
+
+    manifest["generation"]["output"] = "out/shared.png"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="duplicate raw outputs"):
+        load_pipeline(manifest_path, root=tmp_path)
+
+    (tmp_path / "catalogue.json").write_text(
+        json.dumps({"items": [{"id": "one", "target": "two"}, {"id": "two", "target": "one"}]})
+    )
+    manifest["matrix"] = {}
+    manifest["generation"]["id"] = "{id}"
+    manifest["generation"]["output"] = "out/{id}.png"
+    manifest["generation"]["final_output"] = "out/{target}.png"
+    manifest["generation"]["prompt"] = "{id}"
+    manifest["generation"]["model"] = "model"
+    manifest["generation"]["aspect_ratio"] = "1:1"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="raw and final outputs must not overlap"):
+        load_pipeline(manifest_path, root=tmp_path)
+
+    manifest["generation"]["id"] = "{id}"
+    manifest["generation"]["output"] = "catalogue.json"
+    manifest["generation"]["final_output"] = "out/{id}.webp"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="must not overwrite the pipeline manifest or source catalogue"):
         load_pipeline(manifest_path, root=tmp_path)
 
 

@@ -14,6 +14,8 @@ jobs:
     outputs:
       release-created: ${{ steps.release.outputs.release_created }}
       tag-name: ${{ steps.release.outputs.tag_name }}
+      prs-created: ${{ steps.release.outputs.prs_created }}
+      release-pr: ${{ steps.release.outputs.pr }}
     steps:
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
@@ -22,6 +24,49 @@ jobs:
           token: ${{ secrets.CI_GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+  sync-release-lock:
+    needs: release-please
+    if: needs.release-please.outputs.prs-created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - id: release-pr
+        name: Verify release pull request
+        env:
+          GH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          RELEASE_PR: ${{ needs.release-please.outputs.release-pr }}
+        run: |
+          pr_number="$(jq -er '.number' <<<"$RELEASE_PR")"
+          head_repo="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" --jq '.head.repo.full_name')"
+          head_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" --jq '.head.ref')"
+          if [[ "$head_repo" != "$GITHUB_REPOSITORY" || ! "$head_ref" =~ ^release-please-- ]]; then
+            echo "Release-please must create a canonical repository branch." >&2
+            exit 1
+          fi
+          echo "head-ref=$head_ref" >> "$GITHUB_OUTPUT"
+      - name: Check out release pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.release-pr.outputs.head-ref }}
+          token: ${{ secrets.CI_GITHUB_TOKEN }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Synchronize the release lockfile
+        run: uv lock
+      - name: Commit synchronized lockfile
+        env:
+          RELEASE_BRANCH: ${{ steps.release-pr.outputs.head-ref }}
+        run: |
+          if git diff --quiet -- uv.lock; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "chore: synchronize release lockfile"
+          git push origin "HEAD:${RELEASE_BRANCH}"
   deliver:
     needs: release-please
     if: needs.release-please.outputs.release-created == 'true'
