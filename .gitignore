@@ -8,3 +8,5 @@ docs/dist/
 dist/
 *.egg-info/
 __pycache__/
+.coverage
+coverage.xml
