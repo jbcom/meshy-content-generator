@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" role="img" aria-labelledby="title desc">
+  <title id="title">meshy-content-generator pipeline</title>
+  <desc id="desc">A teal wireframe mesh flows through a declarative image pipeline.</desc>
+  <defs><linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#062e2a"/><stop offset="1" stop-color="#115e59"/></linearGradient><linearGradient id="mesh" x1="0" x2="1"><stop stop-color="#99f6e4"/><stop offset="1" stop-color="#2dd4bf"/></linearGradient></defs>
+  <rect width="760" height="280" rx="28" fill="url(#bg)"/>
+  <g fill="none" stroke="url(#mesh)" stroke-width="2" opacity=".88"><path d="M35 66 105 37l73 30 70-32 72 35 73-24 73 33 75-21 78 41"/><path d="M35 122 105 88l73 35 70-38 72 36 73-27 73 39 75-29 78 42"/><path d="M35 179 105 143l73 38 70-39 72 39 73-33 73 42 75-30 78 44"/><path d="M35 236 105 198l73 39 70-40 72 38 73-31 73 43 75-33 78 42"/><path d="M105 37v161M178 67v170M248 35v162M320 70v166M393 46v158M466 79v168M541 58v163M619 99v157"/></g>
+  <g font-family="ui-sans-serif,system-ui,sans-serif" fill="#ecfeff"><text x="45" y="246" font-size="31" font-weight="700">meshy-content-generator</text><text x="47" y="270" font-size="15" fill="#99f6e4">DECLARE → GENERATE → FINISH</text></g>
+  <g transform="translate(501 175)"><rect width="208" height="57" rx="12" fill="#042f2e" stroke="#5eead4"/><text x="17" y="24" fill="#ccfbf1" font-family="ui-monospace,monospace" font-size="13">dry-run / fixture</text><text x="17" y="43" fill="#5eead4" font-family="ui-monospace,monospace" font-size="12">zero credits, full proof</text></g>
+</svg>

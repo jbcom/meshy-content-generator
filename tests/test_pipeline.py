@@ -269,8 +269,47 @@ def test_unknown_id_and_operation_fail_closed(tmp_path: Path) -> None:
     pipeline = load_pipeline(write_pipeline(tmp_path), root=tmp_path)
     with pytest.raises(ValueError, match="Unknown asset ids"):
         pipeline.select({"missing"})
-    invalid = load_pipeline(write_pipeline(tmp_path, postprocess=[{"op": "unknown"}]), root=tmp_path)
-    fixture = tmp_path / "fixture.png"
-    fixture.write_bytes(b"not needed")
     with pytest.raises(ValueError, match="Unknown postprocess operation"):
-        invalid.run(ids={"duck-front"}, fixture_image=fixture)
+        load_pipeline(write_pipeline(tmp_path, postprocess=[{"op": "unknown"}]), root=tmp_path)
+
+
+def test_pipeline_rejects_traversal_collisions_and_unknown_when_variables(tmp_path: Path) -> None:
+    manifest_path = write_pipeline(tmp_path)
+    manifest = json.loads(manifest_path.read_text())
+
+    manifest["generation"]["output"] = "../outside.png"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match=r"generation\.output must stay within"):
+        load_pipeline(manifest_path, root=tmp_path)
+
+    manifest["generation"]["output"] = "out/{id}.png"
+    manifest["generation"]["final_output"] = "out/{id}.webp"
+    manifest["postprocess"] = [{"op": "webp", "quality": 88, "alpha_quality": 95}]
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="duplicate final outputs"):
+        load_pipeline(manifest_path, root=tmp_path)
+
+    manifest["generation"]["id"] = "{id}"
+    manifest["generation"]["final_output"] = "out/{id}-{view}.webp"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="duplicate asset IDs"):
+        load_pipeline(manifest_path, root=tmp_path)
+
+    manifest["generation"]["id"] = "{id}-{view}"
+    manifest["postprocess"] = [{"op": "webp", "quality": 88, "alpha_quality": 95, "when": {"typo": ["x"]}}]
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="unknown when variable"):
+        load_pipeline(manifest_path, root=tmp_path)
+
+
+def test_pipeline_rejects_incomplete_postprocess_and_empty_matrix_dimensions(tmp_path: Path) -> None:
+    manifest_path = write_pipeline(tmp_path, postprocess=[{"op": "webp", "quality": 88}])
+    with pytest.raises(ValueError, match="missing required option"):
+        load_pipeline(manifest_path, root=tmp_path)
+
+    manifest = json.loads(manifest_path.read_text())
+    manifest["postprocess"] = []
+    manifest["matrix"] = {"view": []}
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match=r"matrix\.view must not be empty"):
+        load_pipeline(manifest_path, root=tmp_path)

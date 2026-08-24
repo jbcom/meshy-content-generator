@@ -1,0 +1,36 @@
+name: Repository Policy
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pull = context.payload.pull_request;
+            const trusted = pull.head.repo.full_name === context.repo.owner + "/" + context.repo.repo;
+            if (trusted) {
+              core.info("Same-upstream pull request; control-plane edits may proceed through normal review gates.");
+              return;
+            }
+            const changed = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pull.number,
+              per_page: 100,
+            });
+            const protectedPath = /^(\.github\/(workflows|actions)\/|\.github\/dependabot\.ya?ml$|\.coderabbit\.ya?ml$|sonar-project\.properties$|release-please-config\.json$|\.release-please-manifest\.json$|docs\/sourcey\.config\.ts$|docs\/package\.json$|pnpm-lock\.yaml$)/;
+            const blocked = changed.filter((file) => protectedPath.test(file.filename)).map((file) => file.filename);
+            if (blocked.length > 0) {
+              core.setFailed(`External forks cannot modify trusted control-plane files: ${blocked.join(", ")}`);
+            }

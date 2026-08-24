@@ -1,0 +1,16 @@
+{
+  "name": "meshy-content-generator-docs",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.21.0",
+  "scripts": {
+    "dev": "sourcey dev",
+    "generate-api": "python3 ../scripts/generate_api_docs.py",
+    "build": "pnpm run generate-api && sourcey build -o dist",
+    "validate": "pnpm run generate-api && sourcey build -o dist && test -s dist/llms.txt && test -s dist/llms-full.txt && test -s dist/sitemap.xml",
+    "check-generated": "pnpm run generate-api && git diff --exit-code -- api-reference.md"
+  },
+  "devDependencies": {
+    "sourcey": "3.6.5"
+  }
+}
