@@ -29,8 +29,9 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           version: "0.11.19"
-      - run: uv sync --all-extras
-      - run: uv run pytest --cov=meshy_content_generator --cov-report=xml:coverage.xml
+      - run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - run: uv sync --all-extras --locked
+      - run: uv run --locked --no-sync pytest --cov=meshy_content_generator --cov-report=xml:coverage.xml
       - uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7.0.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
