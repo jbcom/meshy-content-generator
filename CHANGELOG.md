@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.3.0...meshy-content-generator-v0.3.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* invoke trusted delivery after release creation ([825afd1](https://github.com/jbcom/meshy-content-generator/commit/825afd123a4570c9726a5c75d4015b6b407d0de6))
+* invoke trusted delivery after release creation ([5ed60d5](https://github.com/jbcom/meshy-content-generator/commit/5ed60d54ae4d8fcf330db1e901aeb0df980d33c0))
+* invoke trusted delivery after release creation ([95dc456](https://github.com/jbcom/meshy-content-generator/commit/95dc45691ad8e99c82c81b59dcda7550db9638a3))
+
 ## [0.3.0](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.2.1...meshy-content-generator-v0.3.0) (2026-08-24)
 
 
