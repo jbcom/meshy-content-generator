@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.2](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.3.1...meshy-content-generator-v0.3.2) (2026-08-24)
+
+
+### Bug Fixes
+
+* recognize release-please GitHub Actions pull requests ([af2f0ad](https://github.com/jbcom/meshy-content-generator/commit/af2f0ad43afd19479a8729eed0bf201ba5130a8e))
+* recognize release-please GitHub Actions pull requests ([ffd2ad1](https://github.com/jbcom/meshy-content-generator/commit/ffd2ad1677375498e884ddd664bb4886d696c0e3))
+
+
+### Documentation
+
+* configure Context7 library metadata ([75d5dfb](https://github.com/jbcom/meshy-content-generator/commit/75d5dfbe7531ccc47a7dd90045e2ab733e2d9fdf))
+* configure Context7 library metadata ([0a47b42](https://github.com/jbcom/meshy-content-generator/commit/0a47b426eb0bc9fca9c0905448355b4e4cf670f1))
+
 ## [0.3.1](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.3.0...meshy-content-generator-v0.3.1) (2026-08-24)
 
 
