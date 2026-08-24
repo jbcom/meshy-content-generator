@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.3](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.3.2...meshy-content-generator-v0.3.3) (2026-08-24)
+
+
+### Bug Fixes
+
+* harden release and pipeline delivery ([36390ab](https://github.com/jbcom/meshy-content-generator/commit/36390ab19f5ac028d5c8c3db4aa3cbf68e9911b3))
+* harden release and pipeline delivery ([0bd1678](https://github.com/jbcom/meshy-content-generator/commit/0bd1678ebdbbe96a5aab6dfc821a0c36ac0afd31))
+
 ## [0.3.2](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.3.1...meshy-content-generator-v0.3.2) (2026-08-24)
 
 
