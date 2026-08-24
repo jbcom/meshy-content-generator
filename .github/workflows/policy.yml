@@ -8,7 +8,7 @@ permissions: {}
 
 jobs:
   gate:
-    name: gate
+    name: Repository Policy / gate
     runs-on: ubuntu-latest
     permissions:
       contents: read

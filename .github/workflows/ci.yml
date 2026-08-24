@@ -49,7 +49,7 @@ jobs:
       - run: pnpm --dir docs run validate
       - run: pnpm --dir docs run check-generated
   gate:
-    name: gate
+    name: CI / gate
     if: always()
     needs: [python, docs]
     runs-on: ubuntu-latest

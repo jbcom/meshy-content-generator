@@ -7,7 +7,7 @@ permissions: {}
 
 jobs:
   gate:
-    name: gate
+    name: Dependency Review / gate
     runs-on: ubuntu-latest
     permissions:
       contents: read
