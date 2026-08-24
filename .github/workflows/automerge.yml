@@ -23,8 +23,11 @@ jobs:
       - id: release
         env:
           AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          if [ "$AUTHOR" = 'release-please[bot]' ]; then
+          if [ "$HEAD_REPOSITORY" = "$REPOSITORY" ] && { [ "$AUTHOR" = 'release-please[bot]' ] || { [ "$AUTHOR" = 'app/github-actions' ] && [[ "$HEAD_REF" == release-please--branches--main--components--* ]]; }; }; then
             echo 'eligible=true' >> "$GITHUB_OUTPUT"
           else
             echo 'eligible=false' >> "$GITHUB_OUTPUT"
@@ -37,10 +40,12 @@ jobs:
       - id: decision
         env:
           AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
           RELEASE_ELIGIBLE: ${{ steps.release.outputs.eligible }}
           UPDATE_TYPE: ${{ steps.dependabot.outputs.update-type }}
         run: |
-          if [ "$RELEASE_ELIGIBLE" = true ] || { [ "$AUTHOR" = 'dependabot[bot]' ] && [ -n "$UPDATE_TYPE" ] && [ "$UPDATE_TYPE" != 'version-update:semver-major' ]; }; then
+          if [ "$RELEASE_ELIGIBLE" = true ] || { [ "$HEAD_REPOSITORY" = "$REPOSITORY" ] && [ "$AUTHOR" = 'dependabot[bot]' ] && [ -n "$UPDATE_TYPE" ] && [ "$UPDATE_TYPE" != 'version-update:semver-major' ]; }; then
             echo 'eligible=true' >> "$GITHUB_OUTPUT"
           else
             echo 'eligible=false' >> "$GITHUB_OUTPUT"
