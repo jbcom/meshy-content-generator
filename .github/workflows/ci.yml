@@ -28,11 +28,34 @@ jobs:
         with:
           version: "0.11.19"
       - run: sudo apt-get update && sudo apt-get install -y imagemagick
-      - run: uv sync --all-extras
-      - run: uv run pytest
-      - run: uv run ruff check .
-      - run: uv run mypy src
+      - run: uv sync --all-extras --locked
+      - run: uv run --locked --no-sync pytest
+      - run: uv run --locked --no-sync ruff check .
+      - run: uv run --locked --no-sync mypy src
       - run: uv build
+  sonar:
+    name: SonarQube Cloud / analyze
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.19"
+      - run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - run: uv sync --all-extras --locked
+      - run: uv run --locked --no-sync pytest --cov=meshy_content_generator --cov-report=xml:coverage.xml
+      - uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   docs:
     runs-on: ubuntu-latest
     permissions:
@@ -51,8 +74,8 @@ jobs:
   gate:
     name: CI / gate
     if: always()
-    needs: [python, docs]
+    needs: [python, docs, sonar]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
-      - run: test "${{ needs.python.result }}" = success && test "${{ needs.docs.result }}" = success
+      - run: test "${{ needs.python.result }}" = success && test "${{ needs.docs.result }}" = success && test "${{ needs.sonar.result }}" = success
