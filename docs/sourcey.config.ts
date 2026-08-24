@@ -2,7 +2,7 @@ import { defineConfig, markdown } from "sourcey";
 
 export default defineConfig({
   name: "meshy-content-generator",
-  siteUrl: "https://jbcom.github.io",
+  siteUrl: "https://jonbogaty.com",
   baseUrl: "/meshy-content-generator",
   repo: "https://github.com/jbcom/meshy-content-generator",
   editBranch: "main",

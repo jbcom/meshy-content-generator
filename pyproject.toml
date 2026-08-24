@@ -15,7 +15,7 @@ dependencies = ["vendor-fabric[meshy]>=2.2.0,<3"]
 [project.urls]
 Source = "https://github.com/jbcom/meshy-content-generator"
 Issues = "https://github.com/jbcom/meshy-content-generator/issues"
-Documentation = "https://jbcom.github.io/meshy-content-generator/"
+Documentation = "https://jonbogaty.com/meshy-content-generator/"
 
 [project.scripts]
 content-gen = "meshy_content_generator.cli:main"

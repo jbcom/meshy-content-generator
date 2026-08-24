@@ -8,7 +8,7 @@ Declarative text-to-image and ImageMagick pipelines backed exclusively by
 [`vendor-fabric`](https://github.com/jbcom/vendor-fabric). The package contains
 no Meshy HTTP client, credential handling, retry loop, poller, or downloader.
 
-[Documentation](https://jbcom.github.io/meshy-content-generator/) · [Quick start](https://jbcom.github.io/meshy-content-generator/quickstart/) · [Pipeline schema](https://jbcom.github.io/meshy-content-generator/pipeline-schema/) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+[Documentation](https://jonbogaty.com/meshy-content-generator/) · [Quick start](https://jonbogaty.com/meshy-content-generator/quickstart/) · [Pipeline schema](https://jonbogaty.com/meshy-content-generator/pipeline-schema/) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
 ```bash
 uvx --from meshy-content-generator content-gen run tools/pipelines/ducks.json --root . --dry-run
@@ -21,4 +21,4 @@ network access, output writes, or ImageMagick. `--fixture-image image.png`
 exercises the full local post-processing pipeline without spending credits.
 Post-processing is manifest-owned, including alpha-preserving edge feathering,
 painted-mat removal, and mid/near parallax depth masks.
-See [the architecture contract](https://jbcom.github.io/meshy-content-generator/architecture/).
+See [the architecture contract](https://jonbogaty.com/meshy-content-generator/architecture/).
