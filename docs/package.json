@@ -11,6 +11,6 @@
     "check-generated": "pnpm run generate-api && git diff --exit-code -- api-reference.md"
   },
   "devDependencies": {
-    "sourcey": "3.6.5"
+    "sourcey": "3.6.10"
   }
 }
