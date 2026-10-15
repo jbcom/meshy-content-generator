@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.3.3...meshy-content-generator-v0.4.0) (2026-10-15)
+
+
+### Features
+
+* add source-bound protected PNG cutouts ([3ebecab](https://github.com/jbcom/meshy-content-generator/commit/3ebecab915c03f4e4591e969aab9c1294fdbbe5b))
+* add source-bound protected PNG cutouts ([f075980](https://github.com/jbcom/meshy-content-generator/commit/f0759802c4686bb18a6c650b85dcb076edc209f0))
+
+
+### Bug Fixes
+
+* accept documented asset ID ordering on Python 3.11 ([1bfd521](https://github.com/jbcom/meshy-content-generator/commit/1bfd521e01345b2e48e0932816ef0ec745a288d7))
+* **docs:** synchronize lockfile with merged sourcey manifest ([a9c0e3f](https://github.com/jbcom/meshy-content-generator/commit/a9c0e3ff14b4e5667297c9e7971e078c608c5579))
+* exercise native PNG proof on ImageMagick 6 and 7 ([434b2a6](https://github.com/jbcom/meshy-content-generator/commit/434b2a6b15137cdf73abe23841f7ad5d1ae6b32e))
+* harden cutout annotations and CLI diagnostics ([478260c](https://github.com/jbcom/meshy-content-generator/commit/478260c8f4ab094f606d7553e1f25109e8b7d21d))
+* resolve square extent before invoking ImageMagick ([33cf9d8](https://github.com/jbcom/meshy-content-generator/commit/33cf9d8dee8aca9f3db2d17d00c1f046007bf8d0))
+
 ## [0.3.3](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.3.2...meshy-content-generator-v0.3.3) (2026-08-24)
 
 
