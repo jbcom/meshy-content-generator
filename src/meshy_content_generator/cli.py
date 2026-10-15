@@ -33,9 +33,20 @@ def parser() -> argparse.ArgumentParser:
     return command
 
 
+def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
+    command = parser()
+    arguments, remaining = command.parse_known_args(argv)
+    if arguments.command == "run":
+        arguments.ids.extend(value for value in remaining if not value.startswith("-"))
+        remaining = [value for value in remaining if value.startswith("-")]
+    if remaining:
+        command.error(f"unrecognized arguments: {' '.join(remaining)}")
+    return arguments
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run a declarative pipeline."""
-    arguments = parser().parse_args(argv)
+    arguments = _arguments(argv)
     if arguments.command == "cutout":
         try:
             cutout_plan = cutout_png(

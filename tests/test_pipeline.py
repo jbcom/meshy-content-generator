@@ -56,6 +56,18 @@ def test_pipeline_expands_matrix_templates_and_dry_run_has_no_provider_import(
     assert not (tmp_path / "out").exists()
 
 
+def test_run_accepts_ids_after_options_without_accepting_unknown_flags(tmp_path, capsys):
+    path = write_pipeline(tmp_path)
+    arguments = ["run", str(path), "--root", str(tmp_path), "duck-side", "--dry-run"]
+    assert main(arguments) == 0
+    assert [item["id"] for item in json.loads(capsys.readouterr().out)["items"]] == ["duck-side"]
+    invalid = [*arguments, "--froce"]
+    with pytest.raises(SystemExit) as error:
+        main(invalid)
+    assert error.value.code == 2
+    assert "unrecognized arguments: --froce" in capsys.readouterr().err
+
+
 def test_vendor_adapter_delegates_job_persistence_polling_and_download(tmp_path: Path) -> None:
     item = load_pipeline(write_pipeline(tmp_path), root=tmp_path).items[0]
     generator = MagicMock()
