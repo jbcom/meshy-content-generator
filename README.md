@@ -22,3 +22,10 @@ exercises the full local post-processing pipeline without spending credits.
 Post-processing is manifest-owned, including alpha-preserving edge feathering,
 painted-mat removal, and mid/near parallax depth masks.
 See [the architecture contract](https://jonbogaty.com/meshy-content-generator/architecture/).
+
+Existing PNG artwork can use a source-hash-bound protection matte with
+`content-gen cutout source.png output.png --annotations matte.json --dry-run`.
+The cutout route requires ImageMagick even during validation, preserves native
+dimensions and decoded RGB bytes, and never calls the generation provider.
+See [protected cutouts](docs/protected-cutouts.md) for foreground polygons and
+explicit seeds for enclosed background holes.

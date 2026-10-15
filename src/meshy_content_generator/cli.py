@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from meshy_content_generator.alpha import cutout_png
 from meshy_content_generator.pipeline import load_pipeline
 
 
@@ -21,12 +24,43 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--dry-run", action="store_true")
     run.add_argument("--fixture-image", type=Path)
     run.add_argument("--force", action="store_true")
+    cutout = subcommands.add_parser("cutout")
+    cutout.add_argument("source", type=Path)
+    cutout.add_argument("output", type=Path)
+    cutout.add_argument("--annotations", type=Path, required=True)
+    cutout.add_argument("--dry-run", action="store_true")
+    cutout.add_argument("--force", action="store_true")
     return command
+
+
+def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
+    command = parser()
+    arguments, remaining = command.parse_known_args(argv)
+    if arguments.command == "run":
+        arguments.ids.extend(value for value in remaining if not value.startswith("-"))
+        remaining = [value for value in remaining if value.startswith("-")]
+    if remaining:
+        command.error(f"unrecognized arguments: {' '.join(remaining)}")
+    return arguments
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run a declarative pipeline."""
-    arguments = parser().parse_args(argv)
+    arguments = _arguments(argv)
+    if arguments.command == "cutout":
+        try:
+            cutout_plan = cutout_png(
+                arguments.source,
+                arguments.output,
+                arguments.annotations,
+                dry_run=arguments.dry_run,
+                force=arguments.force,
+            )
+        except (ValueError, TypeError, OSError, subprocess.SubprocessError) as error:
+            print(f"cutout: {error}", file=sys.stderr)
+            return 2
+        print(json.dumps(cutout_plan, indent=2))
+        return 0
     pipeline = load_pipeline(arguments.pipeline, root=arguments.root)
     ids = set(arguments.ids) or None
     if arguments.dry_run:
