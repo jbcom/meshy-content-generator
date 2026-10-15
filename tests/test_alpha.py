@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from meshy_content_generator.alpha import cutout_png, remove_checkerboard_background
+from meshy_content_generator.alpha import _protection_mask, cutout_png, remove_checkerboard_background
 from meshy_content_generator.cli import main
 
 
@@ -46,6 +46,12 @@ def test_fringe_pass_cannot_erase_protected_pale_subject_or_restore_prior_alpha(
     source = bytes([20, 30, 40, 0, 250, 250, 250, 91, 240, 240, 240, 63])
     output = remove_checkerboard_background(source, 3, 1, protected_mask=bytes([0, 1, 0]))
     assert output == bytes([20, 30, 40, 0, 250, 250, 250, 91, 240, 240, 240, 0])
+
+
+def test_polygon_canvas_edges_can_protect_the_last_pixel_and_degenerate_regions_fail():
+    assert _protection_mask([[[0, 0], [7, 0], [7, 7], [0, 7]]], 7, 7) == bytes([1] * 49)
+    with pytest.raises(ValueError, match="nonzero area"):
+        _protection_mask([[[0, 0], [1, 1], [2, 2]]], 7, 7)
 
 
 @pytest.mark.parametrize(
@@ -134,3 +140,18 @@ def test_annotation_hash_dimensions_geometry_and_aliases_fail_before_write(png_s
         cutout_png(source, source, annotations)
     with pytest.raises(ValueError, match="distinct"):
         cutout_png(source, annotations, annotations)
+
+
+def test_cli_validation_error_is_clean_and_utf8_annotations_are_portable(png_source, tmp_path, capsys):
+    source, annotations = png_source
+    data = json.loads(annotations.read_text())
+    annotations.write_text(json.dumps({**data, "note": "pale café paper"}, ensure_ascii=False), encoding="utf-8")
+    arguments = ["cutout", str(source), str(tmp_path / "output.png"), "--annotations", str(annotations)]
+    assert main([*arguments, "--dry-run"]) == 0
+    json.loads(capsys.readouterr().out)
+    annotations.write_text(json.dumps({**data, "source_sha256": "0" * 64}), encoding="utf-8")
+    assert main(arguments) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith("cutout: Annotation source hash")
+    assert "Traceback" not in captured.err

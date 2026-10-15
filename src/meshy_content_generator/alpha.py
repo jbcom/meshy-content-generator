@@ -137,11 +137,14 @@ def _protection_mask(polygons: object, width: int, height: int) -> bytes:
     for raw_polygon in polygons:
         if not isinstance(raw_polygon, list) or len(raw_polygon) < MIN_POLYGON_VERTICES:
             raise ValueError("Protected polygons need at least three vertices")
-        polygon = [_point(point, width, height) for point in raw_polygon]
+        polygon = [_point(point, width + 1, height + 1) for point in raw_polygon]
+        edges = list(zip(polygon, [*polygon[1:], polygon[0]], strict=True))
+        if not sum(start[0] * end[1] - end[0] * start[1] for start, end in edges):
+            raise ValueError("Protected polygons must have nonzero area")
         for y in range(min(point[1] for point in polygon), max(point[1] for point in polygon)):
             scan = y + 0.5
             intersections = []
-            for start, end in zip(polygon, [*polygon[1:], polygon[0]], strict=True):
+            for start, end in edges:
                 if min(start[1], end[1]) <= scan < max(start[1], end[1]):
                     intersections.append(start[0] + (scan - start[1]) * (end[0] - start[0]) / (end[1] - start[1]))
             intersections.sort()
@@ -172,7 +175,7 @@ def cutout_png(
         raise ValueError("Protected cutouts require PNG source and output")
     if output.exists() and not force:
         raise FileExistsError(output)
-    raw_annotation: object = json.loads(annotations.read_text())
+    raw_annotation: object = json.loads(annotations.read_text(encoding="utf-8"))
     if not isinstance(raw_annotation, dict) or raw_annotation.get("schema_version") != 1:
         raise ValueError("Annotations require schema_version 1")
     data = cast("dict[str, object]", raw_annotation)
@@ -240,6 +243,7 @@ def _write_png(output: Path, width: int, height: int, pixels: bytes) -> None:
             ],
             input=pixels,
             check=True,
+            capture_output=True,
         )
         decoded = subprocess.run(
             ["magick", str(temporary), "-depth", "8", "rgba:-"],

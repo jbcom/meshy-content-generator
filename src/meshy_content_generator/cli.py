@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -35,18 +37,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run a declarative pipeline."""
     arguments = parser().parse_args(argv)
     if arguments.command == "cutout":
-        print(
-            json.dumps(
-                cutout_png(
-                    arguments.source,
-                    arguments.output,
-                    arguments.annotations,
-                    dry_run=arguments.dry_run,
-                    force=arguments.force,
-                ),
-                indent=2,
+        try:
+            cutout_plan = cutout_png(
+                arguments.source,
+                arguments.output,
+                arguments.annotations,
+                dry_run=arguments.dry_run,
+                force=arguments.force,
             )
-        )
+        except (ValueError, TypeError, OSError, subprocess.SubprocessError) as error:
+            print(f"cutout: {error}", file=sys.stderr)
+            return 2
+        print(json.dumps(cutout_plan, indent=2))
         return 0
     pipeline = load_pipeline(arguments.pipeline, root=arguments.root)
     ids = set(arguments.ids) or None

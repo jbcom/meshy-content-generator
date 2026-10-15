@@ -29,8 +29,10 @@ alpha survives on retained pixels; this operation does not invent soft edges.
 }
 ```
 
-Coordinates refer to the original pixel grid. Polygons use pixel centers and
-must have at least three in-bounds integer vertices. A seed must be an in-bounds
+Coordinates refer to the original pixel grid. Polygon vertices are canvas cell
+corners, so coordinates may reach `width` and `height` at the outer boundary.
+Polygons must have at least three integer vertices and nonzero area; a pixel is
+protected when its center is inside a polygon. A seed must be an in-bounds
 background candidate outside every protected polygon. Hash, size, geometry, or
 seed mismatches fail before writing. Input, output, and annotation files must
 be distinct. Existing outputs are refused unless `--force` is supplied.
