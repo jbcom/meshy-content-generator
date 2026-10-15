@@ -447,6 +447,7 @@ def _process(path: Path, operation: Operation) -> Path:
         else:
             _magick(str(path), "-trim", "+repage", str(path))
     elif operation.name == "square":
+        side = max(_identify(path, "%w"), _identify(path, "%h"))
         _magick(
             str(path),
             "-background",
@@ -454,7 +455,7 @@ def _process(path: Path, operation: Operation) -> Path:
             "-gravity",
             "center",
             "-extent",
-            "%[fx:max(w,h)]x%[fx:max(w,h)]",
+            f"{side}x{side}",
             str(path),
         )
     elif operation.name == "webp":

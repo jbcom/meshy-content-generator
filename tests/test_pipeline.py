@@ -121,6 +121,14 @@ def test_fixture_mode_processes_without_provider(tmp_path: Path) -> None:
     provider.assert_not_called()
     assert len(outputs) == 2
     assert all(output.suffix == ".webp" and output.exists() for output in outputs)
+    for output in outputs:
+        size = subprocess.run(
+            [*_magick_command("identify"), "-format", "%wx%h", str(output)],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        assert size == "8x8"
     assert not any((tmp_path / "out").glob("*.png"))
 
 
