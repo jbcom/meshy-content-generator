@@ -9,6 +9,10 @@ description: Remove edge-connected checkerboards without erasing pale foreground
 existing PNG locally, without generation, credentials, resizing, trimming, or
 color conversion. The output is lossless 8-bit RGBA PNG. Only alpha changes;
 decoded RGB bytes remain identical, including pixels made transparent.
+ImageMagick 7's `magick` executable is preferred. ImageMagick 6 installations
+with both `convert` and `identify` are supported, including Ubuntu's packaged
+tools. Full integration tests require one of these installations and fail
+explicitly when the tools are missing rather than silently skipping PNG proof.
 
 The connected-background rule accepts near-neutral pixels (channel spread at
 most 16, mean brightness at least 72) reachable from an image edge. It then

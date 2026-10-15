@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from meshy_content_generator.cli import main
-from meshy_content_generator.pipeline import Operation, VendorFabricProvider, _process, load_pipeline
+from meshy_content_generator.pipeline import Operation, VendorFabricProvider, _magick_command, _process, load_pipeline
 
 
 def write_pipeline(root: Path, *, postprocess: list[dict[str, object]] | None = None) -> Path:
@@ -87,11 +87,24 @@ def test_runtime_contains_no_duplicate_network_client() -> None:
     assert "MESHY_API_KEY" not in provider_source
 
 
+def test_imagemagick_prefers_version_7_and_supports_the_version_6_tool_pair() -> None:
+    with patch("meshy_content_generator.pipeline.shutil.which", side_effect=lambda name: f"/tools/{name}"):
+        assert _magick_command() == ["/tools/magick"]
+        assert _magick_command("identify") == ["/tools/magick", "identify"]
+    legacy = {"convert": "/tools/convert", "identify": "/tools/identify"}
+    with patch("meshy_content_generator.pipeline.shutil.which", side_effect=legacy.get):
+        assert _magick_command() == ["/tools/convert"]
+        assert _magick_command("identify") == ["/tools/identify"]
+    with (
+        patch("meshy_content_generator.pipeline.shutil.which", return_value=None),
+        pytest.raises(FileNotFoundError, match="Install ImageMagick"),
+    ):
+        _magick_command()
+
+
 def test_fixture_mode_processes_without_provider(tmp_path: Path) -> None:
-    if not __import__("shutil").which("magick"):
-        pytest.skip("ImageMagick unavailable")
     fixture = tmp_path / "fixture.png"
-    subprocess.run(["magick", "-size", "8x4", "xc:white", str(fixture)], check=True)
+    subprocess.run([*_magick_command(), "-size", "8x4", "xc:white", str(fixture)], check=True)
     pipeline = load_pipeline(
         write_pipeline(
             tmp_path,
@@ -112,34 +125,35 @@ def test_fixture_mode_processes_without_provider(tmp_path: Path) -> None:
 
 
 def test_force_reprocesses_existing_output_from_fixture_without_provider(tmp_path: Path) -> None:
-    if not __import__("shutil").which("magick"):
-        pytest.skip("ImageMagick unavailable")
     fixture = tmp_path / "fixture.webp"
-    subprocess.run(["magick", "-size", "8x4", "xc:black", str(fixture)], check=True)
+    subprocess.run([*_magick_command(), "-size", "8x4", "xc:black", str(fixture)], check=True)
     pipeline_path = write_pipeline(
         tmp_path,
         postprocess=[{"op": "webp", "quality": 88, "alpha_quality": 95}],
     )
     existing = tmp_path / "out" / "duck-front.webp"
     existing.parent.mkdir(parents=True)
-    subprocess.run(["magick", "-size", "2x2", "xc:white", str(existing)], check=True)
+    subprocess.run([*_magick_command(), "-size", "2x2", "xc:white", str(existing)], check=True)
 
     with patch("meshy_content_generator.pipeline.VendorFabricProvider") as provider:
-        assert main(
-            [
-                "run",
-                str(pipeline_path),
-                "--root",
-                str(tmp_path),
-                "duck-front",
-                "--force",
-                "--fixture-image",
-                str(fixture),
-            ]
-        ) == 0
+        assert (
+            main(
+                [
+                    "run",
+                    str(pipeline_path),
+                    "--root",
+                    str(tmp_path),
+                    "duck-front",
+                    "--force",
+                    "--fixture-image",
+                    str(fixture),
+                ]
+            )
+            == 0
+        )
     provider.assert_not_called()
     dimensions = subprocess.run(
-        ["magick", "identify", "-format", "%wx%h", str(existing)],
+        [*_magick_command("identify"), "-format", "%wx%h", str(existing)],
         check=True,
         capture_output=True,
         text=True,
@@ -200,12 +214,10 @@ def test_dynamic_nested_template_key_selects_depth_prompt(tmp_path: Path) -> Non
 
 
 def test_feather_multiplies_existing_alpha_instead_of_restoring_it(tmp_path: Path) -> None:
-    if not __import__("shutil").which("magick"):
-        pytest.skip("ImageMagick unavailable")
     image = tmp_path / "alpha.webp"
     subprocess.run(
         [
-            "magick",
+            *_magick_command(),
             "-size",
             "40x20",
             "xc:none",
@@ -224,7 +236,7 @@ def test_feather_multiplies_existing_alpha_instead_of_restoring_it(tmp_path: Pat
         Operation("feather_edges", {"percent": 10, "quality": 100, "alpha_quality": 100}, {}),
     )
     centre_alpha = subprocess.run(
-        ["magick", str(image), "-format", "%[fx:p{20,10}.a]", "info:"],
+        [*_magick_command(), str(image), "-format", "%[fx:p{20,10}.a]", "info:"],
         check=True,
         capture_output=True,
         text=True,
@@ -233,12 +245,10 @@ def test_feather_multiplies_existing_alpha_instead_of_restoring_it(tmp_path: Pat
 
 
 def test_strip_mat_and_depth_masks_are_deterministic(tmp_path: Path) -> None:
-    if not __import__("shutil").which("magick"):
-        pytest.skip("ImageMagick unavailable")
     image = tmp_path / "scene.webp"
     subprocess.run(
         [
-            "magick",
+            *_magick_command(),
             "-size",
             "60x40",
             "xc:gray70",
@@ -256,7 +266,7 @@ def test_strip_mat_and_depth_masks_are_deterministic(tmp_path: Path) -> None:
     )
     _process(image, Operation("strip_painted_mat", {"flat_sd": 12, "step": 4, "soften": 1}, {}))
     margin_alpha = subprocess.run(
-        ["magick", str(image), "-format", "%[fx:p{4,20}.a]", "info:"],
+        [*_magick_command(), str(image), "-format", "%[fx:p{4,20}.a]", "info:"],
         check=True,
         capture_output=True,
         text=True,
@@ -265,7 +275,7 @@ def test_strip_mat_and_depth_masks_are_deterministic(tmp_path: Path) -> None:
 
     _process(image, Operation("parallax_depth", {"depth": "near"}, {}))
     alpha = subprocess.run(
-        ["magick", str(image), "-format", "%[fx:p{30,20}.a],%[fx:p{39,20}.a]", "info:"],
+        [*_magick_command(), str(image), "-format", "%[fx:p{30,20}.a],%[fx:p{39,20}.a]", "info:"],
         check=True,
         capture_output=True,
         text=True,
@@ -282,10 +292,8 @@ def test_parallax_depth_rejects_unknown_depth_before_processing(tmp_path: Path) 
 
 
 def test_strip_painted_mat_rejects_non_positive_scan_step(tmp_path: Path) -> None:
-    if not __import__("shutil").which("magick"):
-        pytest.skip("ImageMagick unavailable")
     image = tmp_path / "scene.webp"
-    subprocess.run(["magick", "-size", "40x40", "xc:white", str(image)], check=True)
+    subprocess.run([*_magick_command(), "-size", "40x40", "xc:white", str(image)], check=True)
     with pytest.raises(ValueError, match="step must be positive"):
         _process(image, Operation("strip_painted_mat", {"step": 0}, {}))
 

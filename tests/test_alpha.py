@@ -1,12 +1,12 @@
 import hashlib
 import json
-import shutil
 import subprocess
 
 import pytest
 
 from meshy_content_generator.alpha import _protection_mask, cutout_png, remove_checkerboard_background
 from meshy_content_generator.cli import main
+from meshy_content_generator.pipeline import _magick_command
 
 
 def fixture_pixels():
@@ -66,17 +66,16 @@ def test_polygon_canvas_edges_can_protect_the_last_pixel_and_degenerate_regions_
     ],
 )
 def test_invalid_inputs_fail_closed(width, height, mask, seeds, message):
+    source = fixture_pixels()
     with pytest.raises(ValueError, match=message):
-        remove_checkerboard_background(fixture_pixels(), width, height, protected_mask=mask, background_seeds=seeds)
+        remove_checkerboard_background(source, width, height, protected_mask=mask, background_seeds=seeds)
 
 
 @pytest.fixture
 def png_source(tmp_path):
-    if not shutil.which("magick"):
-        pytest.skip("ImageMagick unavailable")
     source = tmp_path / "source.png"
     subprocess.run(
-        ["magick", "-size", "7x7", "-depth", "8", "rgba:-", "-define", "png:color-type=6", str(source)],
+        [*_magick_command(), "-size", "7x7", "-depth", "8", "rgba:-", "-define", "png:color-type=6", str(source)],
         input=fixture_pixels(),
         check=True,
     )
@@ -108,7 +107,7 @@ def test_png_cli_is_lossless_repeatable_offline_and_dry_run_writes_nothing(png_s
     assert main([*arguments, "--force"]) == 0
     assert output.read_bytes() == first
     decoded = subprocess.run(
-        ["magick", str(output), "-depth", "8", "rgba:-"],
+        [*_magick_command(), str(output), "-depth", "8", "rgba:-"],
         check=True,
         capture_output=True,
     ).stdout

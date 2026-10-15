@@ -299,14 +299,24 @@ def _matches(operation: Operation, variables: dict[str, object]) -> bool:
     return all(str(variables.get(key)) in accepted for key, accepted in operation.when.items())
 
 
+def _magick_command(operation: str = "convert") -> list[str]:
+    executable = shutil.which("magick")
+    if executable:
+        return [executable, "identify"] if operation == "identify" else [executable]
+    convert, identify = shutil.which("convert"), shutil.which("identify")
+    if convert and identify:
+        return [identify] if operation == "identify" else [convert]
+    raise FileNotFoundError("Install ImageMagick 7 (magick) or ImageMagick 6 (convert and identify)")
+
+
 def _magick(*arguments: str) -> None:
-    subprocess.run(["magick", *arguments], check=True)
+    subprocess.run([*_magick_command(), *arguments], check=True)
 
 
 def _identify(path: Path, expression: str) -> int:
     return int(
         subprocess.run(
-            ["magick", "identify", "-format", expression, str(path)],
+            [*_magick_command("identify"), "-format", expression, str(path)],
             check=True,
             capture_output=True,
             text=True,
@@ -366,7 +376,7 @@ def _strip_painted_mat(path: Path, options: dict[str, object]) -> None:
         return int(
             subprocess.run(
                 [
-                    "magick",
+                    *_magick_command(),
                     str(path),
                     "-crop",
                     f"{step}x{span}+{left}+{top}",
@@ -417,7 +427,7 @@ def _process(path: Path, operation: Operation) -> Path:
         if options.get("sample"):
             sample = str(options["sample"])
             color = subprocess.run(
-                ["magick", str(path), "-format", f"%[pixel:p{{{sample}}}]", "info:"],
+                [*_magick_command(), str(path), "-format", f"%[pixel:p{{{sample}}}]", "info:"],
                 check=True,
                 capture_output=True,
                 text=True,

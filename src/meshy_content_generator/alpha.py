@@ -12,9 +12,12 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
+from meshy_content_generator.pipeline import _magick_command
+
 COORDINATE_DIMENSIONS = 2
 MIN_POLYGON_VERTICES = 3
 PNG_BITS = 8
+RGBA_STREAM = "rgba:-"
 
 
 def _candidate(pixels: bytes, index: int, *, fringe: bool = False) -> bool:
@@ -56,6 +59,52 @@ def _seed_indices(
     return indices
 
 
+class _BackgroundFlood:
+    def __init__(self, pixels: bytes, width: int, height: int, protection: bytes) -> None:
+        """Keep both connected-background passes on one native pixel grid."""
+        self.pixels, self.width, self.height, self.protection = pixels, width, height, protection
+        self.removed = bytearray(width * height)
+        self.visited = bytearray(width * height)
+        self.queue: deque[int] = deque()
+
+    def enqueue(self, index: int, *, fringe: bool = False) -> None:
+        """Queue only unprotected, previously unvisited candidate pixels."""
+        if self.visited[index] or self.protection[index]:
+            return
+        self.visited[index] = 1
+        if _candidate(self.pixels, index, fringe=fringe):
+            self.removed[index] = 1
+            self.queue.append(index)
+
+    def neighbors(self, index: int) -> list[int]:
+        """Return four-connected neighbors without wrapping row boundaries."""
+        x, y = index % self.width, index // self.width
+        neighbors = []
+        if x:
+            neighbors.append(index - 1)
+        if x + 1 < self.width:
+            neighbors.append(index + 1)
+        if y:
+            neighbors.append(index - self.width)
+        if y + 1 < self.height:
+            neighbors.append(index + self.width)
+        return neighbors
+
+    def grow(self, *, fringe: bool = False) -> None:
+        """Visit candidates connected to the current roots."""
+        while self.queue:
+            for index in self.neighbors(self.queue.popleft()):
+                self.enqueue(index, fringe=fringe)
+
+    def start_fringe(self) -> None:
+        """Use removed pixels and existing transparency as fringe roots."""
+        self.visited = bytearray(self.width * self.height)
+        for index, removed in enumerate(self.removed):
+            if removed or self.pixels[index * 4 + 3] == 0:
+                self.visited[index] = 1
+                self.queue.append(index)
+
+
 def remove_checkerboard_background(
     pixels: bytes,
     width: int,
@@ -82,52 +131,45 @@ def remove_checkerboard_background(
         raise ValueError("The protection mask must contain one byte per pixel")
     protection = protected_mask if protected_mask is not None else bytes(count)
     seed_indices = _seed_indices(background_seeds, pixels, protection, width, height)
-    removed = bytearray(count)
-    visited = bytearray(count)
-    queue: deque[int] = deque()
-
-    def enqueue(index: int, *, fringe: bool = False) -> None:
-        if visited[index] or protection[index]:
-            return
-        visited[index] = 1
-        if _candidate(pixels, index, fringe=fringe):
-            removed[index] = 1
-            queue.append(index)
-
+    flood = _BackgroundFlood(pixels, width, height, protection)
     for x in range(width):
-        enqueue(x)
-        enqueue((height - 1) * width + x)
+        flood.enqueue(x)
+        flood.enqueue((height - 1) * width + x)
     for y in range(1, height - 1):
-        enqueue(y * width)
-        enqueue(y * width + width - 1)
+        flood.enqueue(y * width)
+        flood.enqueue(y * width + width - 1)
     for index in seed_indices:
-        enqueue(index)
-
-    def grow(*, fringe: bool = False) -> None:
-        while queue:
-            index = queue.popleft()
-            x, y = index % width, index // width
-            if x:
-                enqueue(index - 1, fringe=fringe)
-            if x + 1 < width:
-                enqueue(index + 1, fringe=fringe)
-            if y:
-                enqueue(index - width, fringe=fringe)
-            if y + 1 < height:
-                enqueue(index + width, fringe=fringe)
-
-    grow()
-    visited = bytearray(count)
-    for index in range(count):
-        if removed[index] or pixels[index * 4 + 3] == 0:
-            visited[index] = 1
-            queue.append(index)
-    grow(fringe=True)
+        flood.enqueue(index)
+    flood.grow()
+    flood.start_fringe()
+    flood.grow(fringe=True)
     output = bytearray(pixels)
-    for index, remove in enumerate(removed):
+    for index, remove in enumerate(flood.removed):
         if remove:
             output[index * 4 + 3] = 0
     return bytes(output)
+
+
+def _polygon(raw_polygon: object, width: int, height: int) -> list[tuple[int, int]]:
+    if not isinstance(raw_polygon, list) or len(raw_polygon) < MIN_POLYGON_VERTICES:
+        raise ValueError("Protected polygons need at least three vertices")
+    polygon = [_point(point, width + 1, height + 1) for point in raw_polygon]
+    edges = zip(polygon, [*polygon[1:], polygon[0]], strict=True)
+    if not sum(start[0] * end[1] - end[0] * start[1] for start, end in edges):
+        raise ValueError("Protected polygons must have nonzero area")
+    return polygon
+
+
+def _row_spans(polygon: list[tuple[int, int]], y: int) -> list[tuple[int, int]]:
+    scan, intersections = y + 0.5, []
+    for start, end in zip(polygon, [*polygon[1:], polygon[0]], strict=True):
+        if min(start[1], end[1]) <= scan < max(start[1], end[1]):
+            intersections.append(start[0] + (scan - start[1]) * (end[0] - start[0]) / (end[1] - start[1]))
+    intersections.sort()
+    return [
+        (math.ceil(left - 0.5), math.ceil(right - 0.5))
+        for left, right in zip(intersections[::2], intersections[1::2], strict=True)
+    ]
 
 
 def _protection_mask(polygons: object, width: int, height: int) -> bytes:
@@ -135,23 +177,42 @@ def _protection_mask(polygons: object, width: int, height: int) -> bytes:
         raise TypeError("protected_polygons must be an array")
     mask = bytearray(width * height)
     for raw_polygon in polygons:
-        if not isinstance(raw_polygon, list) or len(raw_polygon) < MIN_POLYGON_VERTICES:
-            raise ValueError("Protected polygons need at least three vertices")
-        polygon = [_point(point, width + 1, height + 1) for point in raw_polygon]
-        edges = list(zip(polygon, [*polygon[1:], polygon[0]], strict=True))
-        if not sum(start[0] * end[1] - end[0] * start[1] for start, end in edges):
-            raise ValueError("Protected polygons must have nonzero area")
+        polygon = _polygon(raw_polygon, width, height)
         for y in range(min(point[1] for point in polygon), max(point[1] for point in polygon)):
-            scan = y + 0.5
-            intersections = []
-            for start, end in edges:
-                if min(start[1], end[1]) <= scan < max(start[1], end[1]):
-                    intersections.append(start[0] + (scan - start[1]) * (end[0] - start[0]) / (end[1] - start[1]))
-            intersections.sort()
-            for left, right in zip(intersections[::2], intersections[1::2], strict=True):
-                first, last = math.ceil(left - 0.5), math.ceil(right - 0.5)
+            for first, last in _row_spans(polygon, y):
                 mask[y * width + first : y * width + last] = b"\1" * (last - first)
     return bytes(mask)
+
+
+def _source_annotation(source: Path, annotations: Path) -> tuple[dict[str, object], str]:
+    raw_annotation: object = json.loads(annotations.read_text(encoding="utf-8"))
+    if not isinstance(raw_annotation, dict) or raw_annotation.get("schema_version") != 1:
+        raise ValueError("Annotations require schema_version 1")
+    data = cast("dict[str, object]", raw_annotation)
+    source_bytes = source.read_bytes()
+    if not source_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("Source must be a PNG image")
+    source_hash = hashlib.sha256(source_bytes).hexdigest()
+    if source_hash != data.get("source_sha256"):
+        raise ValueError("Annotation source hash does not match the source PNG")
+    return data, source_hash
+
+
+def _source_dimensions(source: Path, data: dict[str, object]) -> tuple[int, int]:
+    dimensions = subprocess.run(
+        [*_magick_command("identify"), "-format", "%w %h %z", str(source)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    if len(dimensions) != len(("width", "height", "depth")):
+        raise ValueError("Source must contain exactly one PNG image")
+    width, height, depth = (int(value) for value in dimensions)
+    if depth != PNG_BITS:
+        raise ValueError("Protected cutouts require 8-bit source pixels")
+    if width != data.get("width") or height != data.get("height"):
+        raise ValueError("Annotation dimensions do not match source PNG")
+    return width, height
 
 
 def cutout_png(
@@ -175,36 +236,15 @@ def cutout_png(
         raise ValueError("Protected cutouts require PNG source and output")
     if output.exists() and not force:
         raise FileExistsError(output)
-    raw_annotation: object = json.loads(annotations.read_text(encoding="utf-8"))
-    if not isinstance(raw_annotation, dict) or raw_annotation.get("schema_version") != 1:
-        raise ValueError("Annotations require schema_version 1")
-    data = cast("dict[str, object]", raw_annotation)
-    source_bytes = source.read_bytes()
-    if not source_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-        raise ValueError("Source must be a PNG image")
-    source_hash = hashlib.sha256(source_bytes).hexdigest()
-    if source_hash != data.get("source_sha256"):
-        raise ValueError("Annotation source hash does not match the source PNG")
-    dimensions = subprocess.run(
-        ["magick", "identify", "-format", "%w %h %z", str(source)],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.split()
-    if len(dimensions) != len(("width", "height", "depth")):
-        raise ValueError("Source must contain exactly one PNG image")
-    width, height, depth = (int(value) for value in dimensions)
-    if depth != PNG_BITS:
-        raise ValueError("Protected cutouts require 8-bit source pixels")
-    if width != data.get("width") or height != data.get("height"):
-        raise ValueError("Annotation dimensions do not match source PNG")
+    data, source_hash = _source_annotation(source, annotations)
+    width, height = _source_dimensions(source, data)
     protection = _protection_mask(data.get("protected_polygons"), width, height)
     raw_seeds = data.get("background_seeds")
     if not isinstance(raw_seeds, list):
         raise TypeError("background_seeds must be an array")
     seeds = tuple(_point(value, width, height) for value in raw_seeds)
     pixels = subprocess.run(
-        ["magick", str(source), "-depth", "8", "rgba:-"],
+        [*_magick_command(), str(source), "-depth", "8", RGBA_STREAM],
         check=True,
         capture_output=True,
     ).stdout
@@ -229,12 +269,12 @@ def _write_png(output: Path, width: int, height: int, pixels: bytes) -> None:
         temporary = Path(directory) / output.name
         subprocess.run(
             [
-                "magick",
+                *_magick_command(),
                 "-size",
                 f"{width}x{height}",
                 "-depth",
                 "8",
-                "rgba:-",
+                RGBA_STREAM,
                 "-define",
                 "png:color-type=6",
                 "-define",
@@ -246,7 +286,7 @@ def _write_png(output: Path, width: int, height: int, pixels: bytes) -> None:
             capture_output=True,
         )
         decoded = subprocess.run(
-            ["magick", str(temporary), "-depth", "8", "rgba:-"],
+            [*_magick_command(), str(temporary), "-depth", "8", RGBA_STREAM],
             check=True,
             capture_output=True,
         ).stdout
