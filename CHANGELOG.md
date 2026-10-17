@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.4.0...meshy-content-generator-v0.4.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **deps:** update handlebars to 4.7.10 in the docs lockfile ([8b26919](https://github.com/jbcom/meshy-content-generator/commit/8b269198b8e5e99b90446f97529efef1247df430))
+
 ## [0.4.0](https://github.com/jbcom/meshy-content-generator/compare/meshy-content-generator-v0.3.3...meshy-content-generator-v0.4.0) (2026-10-15)
 
 
