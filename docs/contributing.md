@@ -19,7 +19,7 @@ uv run ruff check .
 uv run mypy src
 uv build
 
-pnpm install --frozen-lockfile
+pnpm --dir docs install --frozen-lockfile
 pnpm --dir docs run validate
 pnpm --dir docs run check-generated
 pre-commit run --all-files

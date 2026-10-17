@@ -30,20 +30,14 @@ jobs:
           else
             echo 'skip=false' >> "$GITHUB_OUTPUT"
           fi
-      - id: dependabot
-        if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # Only release-please metadata PRs skip validation. Skipped jobs report
+      # success, so exempting Dependabot bumps would let auto-merge land an
+      # unverified dependency update on main.
       - id: decision
         env:
-          AUTHOR: ${{ github.event.pull_request.user.login }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          REPOSITORY: ${{ github.repository }}
           RELEASE_SKIP: ${{ steps.release.outputs.skip }}
-          UPDATE_TYPE: ${{ steps.dependabot.outputs.update-type }}
         run: |
-          if [ "$RELEASE_SKIP" = true ] || { [ "$HEAD_REPOSITORY" = "$REPOSITORY" ] && [ "$AUTHOR" = 'dependabot[bot]' ] && [ -n "$UPDATE_TYPE" ] && [ "$UPDATE_TYPE" != 'version-update:semver-major' ]; }; then
+          if [ "$RELEASE_SKIP" = true ]; then
             echo 'skip=true' >> "$GITHUB_OUTPUT"
           else
             echo 'skip=false' >> "$GITHUB_OUTPUT"
@@ -75,7 +69,8 @@ jobs:
       - run: uv build
   sonar:
     needs: classify
-    if: github.event_name != 'pull_request' || needs.classify.outputs.skip != 'true'
+    # Dependabot runs cannot read SONAR_TOKEN, so the analysis is skipped for them.
+    if: github.event_name != 'pull_request' || (needs.classify.outputs.skip != 'true' && github.event.pull_request.user.login != 'dependabot[bot]')
     name: SonarQube Cloud / analyze
     runs-on: ubuntu-latest
     permissions:
@@ -112,9 +107,14 @@ jobs:
         with:
           node-version: 24
       - run: corepack enable
+      # docs/ is a standalone pnpm project: its lockfile sits next to its
+      # manifest, which is where Dependabot looks.
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --dir docs run validate
-      - run: pnpm --dir docs run check-generated
+        working-directory: docs
+      - run: pnpm run validate
+        working-directory: docs
+      - run: pnpm run check-generated
+        working-directory: docs
   gate:
     name: CI / gate
     if: always()
@@ -127,9 +127,16 @@ jobs:
           PYTHON: ${{ needs.python.result }}
           DOCS: ${{ needs.docs.result }}
           SONAR: ${{ needs.sonar.result }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           if [ "$SKIP" = true ]; then
-            echo 'Vetted automation pull request: tests, documentation validation, and Sonar analysis intentionally skipped.'
+            echo 'Release metadata pull request: tests, documentation validation, and Sonar analysis intentionally skipped.'
             exit 0
           fi
-          test "$PYTHON" = success && test "$DOCS" = success && test "$SONAR" = success
+          test "$PYTHON" = success && test "$DOCS" = success
+          # Dependabot runs cannot read SONAR_TOKEN, so only they may skip Sonar.
+          if [ "$AUTHOR" = 'dependabot[bot]' ]; then
+            test "$SONAR" = skipped
+          else
+            test "$SONAR" = success
+          fi

@@ -16,7 +16,7 @@ make a network request.
 Sourcey is the only documentation renderer. Authored pages and the Sourcey
 configuration live in `docs/`; `docs/api-reference.md` is generated from public
 Python source by `scripts/generate_api_docs.py` and must never be hand-edited.
-Run `pnpm install --frozen-lockfile`, `pnpm --dir docs run validate`, and
+Run `pnpm --dir docs install --frozen-lockfile`, `pnpm --dir docs run validate`, and
 `pnpm --dir docs run check-generated` with the locked docs toolchain. Sourcey
 build output (`docs/dist/`) is untracked and generates the deployed site's
 `llms.txt`, `llms-full.txt`, and sitemap; do not create a competing root
