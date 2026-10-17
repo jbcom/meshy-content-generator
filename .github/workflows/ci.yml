@@ -70,7 +70,7 @@ jobs:
   sonar:
     needs: classify
     # Dependabot runs cannot read SONAR_TOKEN, so the analysis is skipped for them.
-    if: github.event_name != 'pull_request' || (needs.classify.outputs.skip != 'true' && github.event.pull_request.user.login != 'dependabot[bot]')
+    if: github.event_name != 'pull_request' || (needs.classify.outputs.skip != 'true' && github.actor != 'dependabot[bot]')
     name: SonarQube Cloud / analyze
     runs-on: ubuntu-latest
     permissions:
@@ -127,15 +127,18 @@ jobs:
           PYTHON: ${{ needs.python.result }}
           DOCS: ${{ needs.docs.result }}
           SONAR: ${{ needs.sonar.result }}
-          AUTHOR: ${{ github.event.pull_request.user.login }}
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
         run: |
           if [ "$SKIP" = true ]; then
             echo 'Release metadata pull request: tests, documentation validation, and Sonar analysis intentionally skipped.'
             exit 0
           fi
           test "$PYTHON" = success && test "$DOCS" = success
-          # Dependabot runs cannot read SONAR_TOKEN, so only they may skip Sonar.
-          if [ "$AUTHOR" = 'dependabot[bot]' ]; then
+          # Mirrors the sonar job condition: Dependabot pull request runs cannot
+          # read SONAR_TOKEN, so only they may skip Sonar. Every other run,
+          # including pushes to main, must have a successful analysis.
+          if [ "$EVENT_NAME" = pull_request ] && [ "$ACTOR" = 'dependabot[bot]' ]; then
             test "$SONAR" = skipped
           else
             test "$SONAR" = success
