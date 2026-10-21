@@ -9,14 +9,8 @@ importers:
   .:
     devDependencies:
       sourcey:
-        specifier: 3.6.13
-        version: 3.6.13(@babel/core@7.29.7)(@types/json-schema@7.0.15)
-
-  docs:
-    devDependencies:
-      sourcey:
-        specifier: 3.6.13
-        version: 3.6.13(@babel/core@7.29.7)(@types/json-schema@7.0.15)
+        specifier: 3.6.14
+        version: 3.6.14(@babel/core@7.29.7)(@types/json-schema@7.0.15)
 
 packages:
 
@@ -1193,8 +1187,8 @@ packages:
     resolution: {integrity: sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ==}
     engines: {node: '>= 12'}
 
-  sourcey@3.6.13:
-    resolution: {integrity: sha512-bMqxHbgFC+zG1n8B6WV47zshh83Zqd71V+VfH1DJ77/fyEs7K7AsK4TOreM1m6aATkQCKtVUlvalu8okE0u/5Q==}
+  sourcey@3.6.14:
+    resolution: {integrity: sha512-YOa8/5BWmL62CfqBtM/OE6HNla3ERv4wC0/gJ9M4CD4yfjRpz86X1bZN+OWYqE+rMyJG2a/IUVQk5TaLVm2ZuQ==}
     engines: {node: '>=22.19'}
     hasBin: true
 
@@ -2443,7 +2437,7 @@ snapshots:
 
   source-map@0.7.6: {}
 
-  sourcey@3.6.13(@babel/core@7.29.7)(@types/json-schema@7.0.15):
+  sourcey@3.6.14(@babel/core@7.29.7)(@types/json-schema@7.0.15):
     dependencies:
       '@apidevtools/json-schema-ref-parser': 16.0.5(@types/json-schema@7.0.15)
       '@preact/preset-vite': 2.10.6(@babel/core@7.29.7)(preact@10.29.8)(vite@8.3.4(jiti@2.7.0))
